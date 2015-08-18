@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> r1214 - trunk/fwcutter
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-svn/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1214%20-%20trunk/fwcutter&In-Reply-To=%3C200701262031.l0QKVDrH002134%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000000.html">
+   <LINK REL="Next"  HREF="000002.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>r1214 - trunk/fwcutter</H1>
+    <B>marlanx at mail.berlios.de</B> 
+    <A HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1214%20-%20trunk/fwcutter&In-Reply-To=%3C200701262031.l0QKVDrH002134%40sheep.berlios.de%3E"
+       TITLE="r1214 - trunk/fwcutter">marlanx at mail.berlios.de
+       </A><BR>
+    <I>Fri Jan 26 21:31:13 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000000.html">r1213 - trunk/fwcutter
+</A></li>
+        <LI>Next message: <A HREF="000002.html">r1215 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1">[ date ]</a>
+              <a href="thread.html#1">[ thread ]</a>
+              <a href="subject.html#1">[ subject ]</a>
+              <a href="author.html#1">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: marlanx
+Date: 2007-01-26 21:31:10 +0100 (Fri, 26 Jan 2007)
+New Revision: 1214
+
+Modified:
+   trunk/fwcutter/fwcutter_list.h
+Log:
+bcmwl6.sys v4.102.15.56 (renamed as wn311b.sys) added
+<A HREF="ftp://downloads.netgear.com/files/WN311B_Vista_beta.zip">ftp://downloads.netgear.com/files/WN311B_Vista_beta.zip</A>
+
+Modified: trunk/fwcutter/fwcutter_list.h
+===================================================================
+--- trunk/fwcutter/fwcutter_list.h	2007-01-23 22:43:51 UTC (rev 1213)
++++ trunk/fwcutter/fwcutter_list.h	2007-01-26 20:31:10 UTC (rev 1214)
+@@ -1207,6 +1207,21 @@
+ 	},
+ 	{
+ 		.name        = &quot;bcmwl6.sys&quot;,
++		.version     = &quot;4.102.15.56&quot;,
++		.md5         = &quot;509f672686af40f95859fde67108449b&quot;,
++		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
++			       V4_FIRMWARE,
++		.iv_pos      = 0x4db70,
++		.iv_map      = INITVALS_MAP_V4_80_46,
++		.uc4_pos     = 0x54af0,  .uc4_length  = 0x4e50,
++		.uc5_pos     = 0x59948,  .uc5_length  = 0x5640,
++		.uc11_pos    = 0x5ef90,  .uc11_length = 0x6d80,
++		.uc13_pos    = 0x65d18,  .uc13_length = 0x69e0,
++		.pcm4_pos    = 0x6c6f8,	 .pcm4_length = 0x520,
++		.pcm5_pos    = 0x6cc20,	 .pcm5_length = 0x520,
++	},
++	{
++		.name        = &quot;bcmwl6.sys&quot;,
+ 		.version     = &quot;4.102.15.61&quot;,
+ 		.md5         = &quot;746f59822a5187510471fc46889b8cc9&quot;,
+ 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000000.html">r1213 - trunk/fwcutter
+</A></li>
+	<LI>Next message: <A HREF="000002.html">r1215 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#1">[ date ]</a>
+              <a href="thread.html#1">[ thread ]</a>
+              <a href="subject.html#1">[ subject ]</a>
+              <a href="author.html#1">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">More information about the Bcm43xx-svn
+mailing list</a><br>
+</body></html>

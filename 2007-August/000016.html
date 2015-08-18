@@ -1,0 +1,3583 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> r1228 - trunk/fwcutter
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-svn/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1228%20-%20trunk/fwcutter&In-Reply-To=%3C200708151726.l7FHQYCt018198%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000015.html">
+   <LINK REL="Next"  HREF="000017.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>r1228 - trunk/fwcutter</H1>
+    <B>tuxbuesch at BerliOS</B> 
+    <A HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1228%20-%20trunk/fwcutter&In-Reply-To=%3C200708151726.l7FHQYCt018198%40sheep.berlios.de%3E"
+       TITLE="r1228 - trunk/fwcutter">tuxbuesch at mail.berlios.de
+       </A><BR>
+    <I>Wed Aug 15 19:26:34 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000015.html">r1227 - trunk/sprom
+</A></li>
+        <LI>Next message: <A HREF="000017.html">r1229 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#16">[ date ]</a>
+              <a href="thread.html#16">[ thread ]</a>
+              <a href="subject.html#16">[ subject ]</a>
+              <a href="author.html#16">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: tuxbuesch
+Date: 2007-08-15 19:26:29 +0200 (Wed, 15 Aug 2007)
+New Revision: 1228
+
+Modified:
+   trunk/fwcutter/Makefile
+   trunk/fwcutter/README
+   trunk/fwcutter/fwcutter.c
+   trunk/fwcutter/fwcutter.h
+   trunk/fwcutter/fwcutter_list.h
+   trunk/fwcutter/md5.c
+Log:
+From: Johannes Berg
+
+Rewrite
+
+
+
+Modified: trunk/fwcutter/Makefile
+===================================================================
+--- trunk/fwcutter/Makefile	2007-08-08 13:59:04 UTC (rev 1227)
++++ trunk/fwcutter/Makefile	2007-08-15 17:26:29 UTC (rev 1228)
+@@ -1,7 +1,5 @@
+-VERSION = 007
++VERSION = 008
+ 
+-FIRMWARE_INSTALL_DIR ?= /lib/firmware
+-
+ CC ?= cc
+ PREFIX ?= /usr/local
+ CFLAGS ?= -O2 -fomit-frame-pointer
+@@ -16,21 +14,17 @@
+ all: fwcutter
+ 
+ fwcutter: $(OBJECTS)
+-	$(CC) $(CFLAGS) -o bcm43xx-fwcutter $(OBJECTS) $(LDFLAGS)
++	$(CC) $(CFLAGS) -o b43-fwcutter $(OBJECTS) $(LDFLAGS)
+ 
+ install: all
+ 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/bin/
+-	-install -o 0 -g 0 -m 755 bcm43xx-fwcutter $(PREFIX)/bin/
++	-install -o 0 -g 0 -m 755 b43-fwcutter $(PREFIX)/bin/
+ 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/man/man1/
+-	-install -o 0 -g 0 -m 644 bcm43xx-fwcutter.1 $(PREFIX)/man/man1/
++	-install -o 0 -g 0 -m 644 b43-fwcutter.1 $(PREFIX)/man/man1/
+ 
+ clean:
+-	-rm -f *~ *.o *.orig *.rej *.fw bcm43xx-fwcutter
++	-rm -f *~ *.o *.orig *.rej *.fw b43-fwcutter
+ 
+-installfw:
+-	-if ! [ -d $(FIRMWARE_INSTALL_DIR) ]; then mkdir -p $(FIRMWARE_INSTALL_DIR); fi
+-	-install -o 0 -g 0 -m 600 bcm43xx_*.fw $(FIRMWARE_INSTALL_DIR)
+-
+ # dependencies
+ fwcutter.o: fwcutter.h md5.h fwcutter_list.h
+ md5.o: md5.h
+
+Modified: trunk/fwcutter/README
+===================================================================
+--- trunk/fwcutter/README	2007-08-08 13:59:04 UTC (rev 1227)
++++ trunk/fwcutter/README	2007-08-15 17:26:29 UTC (rev 1228)
+@@ -5,7 +5,7 @@
+ About this software
+ -------------------
+ 
+-bcm43xx-fwcutter is a tool which can extract firmware from various source files.
++b43-fwcutter is a tool which can extract firmware from various source files.
+ It's written for BCM43xx driver files.
+ 
+ The project page is <A HREF="http://bcm43xx.berlios.de/">http://bcm43xx.berlios.de/</A>
+@@ -14,111 +14,34 @@
+ Usage
+ -----
+ 
+-bcm43xx-fwcutter FILE		extracts the firmware from a source FILE to .
+-bcm43xx-fwcutter -i FILE        identify the driver file. Print information, but don't extract.
+-bcm43xx-fwcutter -w /tmp FILE	extract and write firmware to /tmp.
+-bcm43xx-fwcutter -l		prints a list of supported driver source files.
++b43-fwcutter FILE		extracts the firmware from a source FILE to
++				the current directory, creating a directory
++				&quot;b43&quot; or &quot;b43legacy&quot; with files in it.
++b43-fwcutter -i FILE		identify the driver file; print information
++				but don't extract.
++b43-fwcutter -w /tmp FILE	extract and write firmware to /tmp.
++b43-fwcutter -l			prints a list of supported driver source files.
+ 
+-After extraction, run make installfw which will copy bcm43xx_*.fw to 
+-FIRMWARE_INSTALL_DIR (which defaults to /lib/firmware) for
+-usage by the bcm43xx driver. An alternative way is using the -w option.
++After extraction, copy the &quot;b43&quot; or &quot;b43legacy&quot; directory to your firmware
++directory (usually /lib/firmware or similar, see below). Alternatively you
++can use the -w option to b43-fwcutter.
+ 
+-Different distributions use different target directories for the firmware 
+-files. If the driver complains about missing firmware files look for the 
+-correct directory. For some distributions you have to use 
+-/lib/hotplug/firmware or /usr/lib/hotplug/firmware for FIRMWARE_INSTALL_DIR,
+-but other directories are also possible.
++Different distributions use different directories to load firmware from.
++If the driver complains about missing firmware files look for the correct
++directory. For some distributions you have to use /lib/hotplug/firmware
++or /usr/lib/hotplug/firmware but other directories are also possible.
+ 
+-Extraction doesn't depend on the system you're using. You can even 
+-extract firmware on ppc from a mips driver. Cross-extraction is allowed.
++Because firmware file are stored in big endian, extraction doesn't depend
++on the system you're using. You can use extracted firmware from any driver
++on any system and also copy the extracted files to any other system (e.g.
++if extraction on the target system isn't feasible.)
+ 
+ 
+ Where can I find some driver source files?
+ ------------------------------------------
+ 
+-AppleAirPort2
+--------------
+-You can find the Apple Airport Extreme driver in your Mac OS X system at
+-/System/Library/Extensions/AppleAirPort2.kext/Contents/MacOS/AppleAirPort2
+-(Note that not all versions of the MacOSX driver are supported.)
++Please check the references at
++<A HREF="http://www.linuxwireless.org/en/users/Drivers/bcm43xx#devicefirmware">http://www.linuxwireless.org/en/users/Drivers/bcm43xx#devicefirmware</A>
+ 
+-AppleAirPortBrcm4311
+---------------------
+-AppleAirPortBrcm4311 only seems to be available on Intel based machines.
+-System/Library/Extensions/IO80211Family.kext/Contents/PlugIns/AppleAirPortBrcm4311.kext/Contents/MacOS/AppleAirPortBrcm4311
+-
+-bcmwl5.sys	Link
+--------------   -------------------------------------------------------
+-3.20.23.0	<A HREF="http://nicolas.bonifas.free.fr/inspiron/bcmwl5.sys">http://nicolas.bonifas.free.fr/inspiron/bcmwl5.sys</A>
+-		<A HREF="http://www.fujitsupc.com/downloads/Wireless_Broadcom_802.11g_WPA_V3.20.23.0_XP_2K.exe">http://www.fujitsupc.com/downloads/Wireless_Broadcom_802.11g_WPA_V3.20.23.0_XP_2K.exe</A>
+-		<A HREF="http://files.codykrieger.com/mn720drivers/bcmwl5.sys">http://files.codykrieger.com/mn720drivers/bcmwl5.sys</A>
+-3.30.15.0	<A HREF="ftp://ftp.asus.com.tw/pub/ASUS/wireless/WL-100g-03/Driver_330150.zip">ftp://ftp.asus.com.tw/pub/ASUS/wireless/WL-100g-03/Driver_330150.zip</A>
+-		<A HREF="http://web.belkin.com/support/download/files/F5D7010-v2.4.4.exe">http://web.belkin.com/support/download/files/F5D7010-v2.4.4.exe</A>
+-		<A HREF="http://www.belkin.com/support/download/downloaddetails.asp?file_id=1425">http://www.belkin.com/support/download/downloaddetails.asp?file_id=1425</A>
+-		<A HREF="http://communications.siemens.com/repository/1135/113557/pccard54_V11200_eng.exe">http://communications.siemens.com/repository/1135/113557/pccard54_V11200_eng.exe</A>
+-3.30.15.1	<A HREF="http://www.buffalo-technology.com/downloads/CBG54_30_15.zip">http://www.buffalo-technology.com/downloads/CBG54_30_15.zip</A>
+-3.40.20.0	<A HREF="http://broadband.motorola.com/consumers/products/WN825g/downloads/WN-WPCI-Web-Update-v1.1.exe">http://broadband.motorola.com/consumers/products/WN825g/downloads/WN-WPCI-Web-Update-v1.1.exe</A>
+-		<A HREF="http://broadband.motorola.com/consumers/products/WPCI810g/downloads/WN-WPCI-Web-Update-v1.1.exe">http://broadband.motorola.com/consumers/products/WPCI810g/downloads/WN-WPCI-Web-Update-v1.1.exe</A>
+-3.40.25.3	<A HREF="http://www.silfreed.net/download/hpzt3000cto/SP23107A.tar.gz">http://www.silfreed.net/download/hpzt3000cto/SP23107A.tar.gz</A>
+-3.40.65.0	<A HREF="http://ftp.us.dell.com/network/R74091jp.EXE">http://ftp.us.dell.com/network/R74091jp.EXE</A>
+-3.40.69.0	<A HREF="http://metahusky.net/~gavin/home/bcmwl5.sys">http://metahusky.net/~gavin/home/bcmwl5.sys</A>
+-3.40.73.0	<A HREF="http://ftp.us.dell.com/network/R83097.EXE">http://ftp.us.dell.com/network/R83097.EXE</A>
+-		<A HREF="ftp://ftp.us.dell.com/network/R83097.EXE">ftp://ftp.us.dell.com/network/R83097.EXE</A>
+-3.40.100.0	<A HREF="ftp://ftp.wildpackets.com/pub/outgoing/brcmDvr340rc100a~@.zip">ftp://ftp.wildpackets.com/pub/outgoing/brcmDvr340rc100a~@.zip</A>
+-3.50.21.10	<A HREF="http://www.buffalo-technology.com/downloads/CBG54_3.50.21.10_Driver_rev.zip">http://www.buffalo-technology.com/downloads/CBG54_3.50.21.10_Driver_rev.zip</A>
+-3.60.7.0	<A HREF="ftp://ftp.asus.com.tw/pub/ASUS/wireless/WL-100g-03/Driver_3607.zip">ftp://ftp.asus.com.tw/pub/ASUS/wireless/WL-100g-03/Driver_3607.zip</A>
+-3.60.7.5	<A HREF="http://www2.melcoinc.co.jp/pub/lan/wdrv_660.exe">http://www2.melcoinc.co.jp/pub/lan/wdrv_660.exe</A>
+-3.70.12.0	<A HREF="http://files.wl500g.info/asus/wl120g/drivers/3.70.12.0.rar">http://files.wl500g.info/asus/wl120g/drivers/3.70.12.0.rar</A>
+-		<A HREF="ftp://ftp.compaq.com/pub/softpaq/sp28001-28500/sp28198.exe">ftp://ftp.compaq.com/pub/softpaq/sp28001-28500/sp28198.exe</A>
+-3.70.17.0	<A HREF="ftp://ftp.compaq.com/pub/softpaq/sp28501-29000/SP28538.exe">ftp://ftp.compaq.com/pub/softpaq/sp28501-29000/SP28538.exe</A>
+-3.90.16.0	<A HREF="http://www.usr.com/support/5421/5421-files/5421-na.exe">http://www.usr.com/support/5421/5421-files/5421-na.exe</A>
+-3.90.41.1	<A HREF="http://www2.melcoinc.co.jp/pub/lan/wdrv_661.exe">http://www2.melcoinc.co.jp/pub/lan/wdrv_661.exe</A>
+-3.94.41.1	<A HREF="http://www.buffalo-technology.com/downloads/WLI2-PCI-G54S.zip">http://www.buffalo-technology.com/downloads/WLI2-PCI-G54S.zip</A>
+-		<A HREF="http://www.buffalo-technology.com/downloads/WLI-CB-G54S.3.104.64.50.zip">http://www.buffalo-technology.com/downloads/WLI-CB-G54S.3.104.64.50.zip</A>
+-3.94.41.2	<A HREF="http://www2.melcoinc.co.jp/pub/lan/wdrv_810.exe">http://www2.melcoinc.co.jp/pub/lan/wdrv_810.exe</A>
+-3.100.35.1	<A HREF="http://ftp.us.dell.com/network/R94826.EXE">http://ftp.us.dell.com/network/R94826.EXE</A>
+-3.100.46.0	<A HREF="ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/80211g.zip">ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/80211g.zip</A>
+-		<A HREF="http://www.linksys.com/servlet/Satellite?blobcol=urldata&amp;blobheadername1=Content-Type&amp;blobheadername2=Content-Disposition&amp;blobheadervalue1=application%2Fx-msdownload&amp;blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&amp;blobkey=id&amp;blobtable=MungoBlobs&amp;blobwhere=1124848568427&amp;ssbinary=true">http://www.linksys.com/servlet/Satellite?blobcol=urldata&amp;blobheadername1=Content-Type&amp;blobheadername2=Content-Disposition&amp;blobheadervalue1=application%2Fx-msdownload&amp;blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&amp;blobkey=id&amp;blobtable=MungoBlobs&amp;blobwhere=1124848568427&amp;ssbinary=true</A>
+-		<A HREF="ftp://ftp.compaq.com/pub/softpaq/sp29501-30000/SP29845.exe">ftp://ftp.compaq.com/pub/softpaq/sp29501-30000/SP29845.exe</A>
+-3.100.64.0	<A HREF="ftp://ftp.compaq.com/pub/softpaq/sp30501-31000/SP30676.exe">ftp://ftp.compaq.com/pub/softpaq/sp30501-31000/SP30676.exe</A>
+-3.100.64.50	<A HREF="http://www2.melcoinc.co.jp/pub/lan/wdrv_661.exe">http://www2.melcoinc.co.jp/pub/lan/wdrv_661.exe</A>
+-3.100.65.1	<A HREF="ftp://ftp.hp.com/pub/softlib/software5/COL3601/ob-31557-1/SP30379.exe">ftp://ftp.hp.com/pub/softlib/software5/COL3601/ob-31557-1/SP30379.exe</A>
+-3.104.64.50	<A HREF="http://www.buffalo-technology.com/downloads/WLI2-PCI-G54S.zip">http://www.buffalo-technology.com/downloads/WLI2-PCI-G54S.zip</A>
+-		<A HREF="http://www.buffalo-technology.com/downloads/WLI-CB-G54S.3.104.64.50.zip">http://www.buffalo-technology.com/downloads/WLI-CB-G54S.3.104.64.50.zip</A>
+-3.104.64.52	<A HREF="http://www2.melcoinc.co.jp/pub/lan/wdrv_810.exe">http://www2.melcoinc.co.jp/pub/lan/wdrv_810.exe</A>
+-3.120.27.0	<A HREF="ftp://ftp.us.dell.com/network/R102318.EXE">ftp://ftp.us.dell.com/network/R102318.EXE</A>
+-3.140.16.0	<A HREF="http://files.techlabs.by/getfile.php?id=1844">http://files.techlabs.by/getfile.php?id=1844</A>
+-4.10.40.0	<A HREF="http://rapidshare.de/files/11458737/Broadcom_4.10.40.0_Drivers.cab.html">http://rapidshare.de/files/11458737/Broadcom_4.10.40.0_Drivers.cab.html</A>
+-4.10.40.1	<A HREF="http://images.lunarpages.com/12002219.cab">http://images.lunarpages.com/12002219.cab</A>
+-
+-bcmwl564.sys	Link
+--------------   -------------------------------------------------------
+-3.70.17.5	<A HREF="http://ubuntuforums.org/attachment.php?attachmentid=186">http://ubuntuforums.org/attachment.php?attachmentid=186</A>
+-3.100.64.0	<A HREF="ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/winxp64bit/80211g.zip">ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/winxp64bit/80211g.zip</A>
+-
+-bcmwl5a.sys	Link
+--------------   -------------------------------------------------------
+-3.90.16.0	<A HREF="http://www.linksys.com/servlet/Satellite?blobcol=urldata&amp;blobheadername1=Content-Type&amp;blobheadername2=Content-Disposition&amp;blobheadervalue1=application%2Fx-msdownload&amp;blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&amp;blobkey=id&amp;blobtable=MungoBlobs&amp;blobwhere=1124848568427&amp;ssbinary=true">http://www.linksys.com/servlet/Satellite?blobcol=urldata&amp;blobheadername1=Content-Type&amp;blobheadername2=Content-Disposition&amp;blobheadervalue1=application%2Fx-msdownload&amp;blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&amp;blobkey=id&amp;blobtable=MungoBlobs&amp;blobwhere=1124848568427&amp;ssbinary=true</A>
+-
+-d11ucode.o	Link
+--------------   -------------------------------------------------------
+-3.50.21.10      <A HREF="ftp://ftp.gpl-devices.org/pub/vendors/Motorola/WE800G/v4.04/WE800G_V4.04_GPL.tgz">ftp://ftp.gpl-devices.org/pub/vendors/Motorola/WE800G/v4.04/WE800G_V4.04_GPL.tgz</A>
+-3.60.7.0	<A HREF="http://files.wl500g.info/asus/wl500g/gpl/broadcom/src/wl/linux/ap_d11ucode.o">http://files.wl500g.info/asus/wl500g/gpl/broadcom/src/wl/linux/ap_d11ucode.o</A>
+-3.60.13.0	<A HREF="http://arch.crans.org/bernat@luffy.cx--2005-public/wrt54g--crans--0--base-0/wl/linux/sta_d11ucode.o?download">http://arch.crans.org/bernat@luffy.cx--2005-public/wrt54g--crans--0--base-0/wl/linux/sta_d11ucode.o?download</A>
+-3.90.7.0	<A HREF="http://dune.hu/gpl_tarballs/asus/broadcom/src/wl.orig/linux/ap_d11ucode.o">http://dune.hu/gpl_tarballs/asus/broadcom/src/wl.orig/linux/ap_d11ucode.o</A>
+-
+-wl.o		Link
+--------------   -------------------------------------------------------
+-3.50.21.0	<A HREF="http://nthill.free.fr/openwrt/sources/wl/wl-2.02.7.tar.bz2">http://nthill.free.fr/openwrt/sources/wl/wl-2.02.7.tar.bz2</A>
+-3.50.21.10	<A HREF="ftp://ftp.gpl-devices.org/pub/vendors/Motorola/WE800G/v4.04/WE800G_V4.04_GPL.tgz">ftp://ftp.gpl-devices.org/pub/vendors/Motorola/WE800G/v4.04/WE800G_V4.04_GPL.tgz</A>
+-3.60.13.0	<A HREF="http://nthill.free.fr/openwrt/sources/wl/wl-2.09.1.tar.bz2">http://nthill.free.fr/openwrt/sources/wl/wl-2.09.1.tar.bz2</A>
+-		<A HREF="http://nthill.free.fr/openwrt/sources/wl/wl-3.37.6.tar.bz2">http://nthill.free.fr/openwrt/sources/wl/wl-3.37.6.tar.bz2</A>
+-		<A HREF="http://arch.crans.org/bernat@luffy.cx--2005-public/wrt54g--crans--0--base-0/wl/linux/wl.o?download">http://arch.crans.org/bernat@luffy.cx--2005-public/wrt54g--crans--0--base-0/wl/linux/wl.o?download</A>
+-3.90.37.0	<A HREF="http://openwrt.inf.fh-brs.de/~nbd/wl1.o">http://openwrt.inf.fh-brs.de/~nbd/wl1.o</A>
+-
+-wl_apsta.o	Link
+--------------   -------------------------------------------------------
+-3.31.16.0	<A HREF="http://puma.ttc.cz/~jaha2x/openwrt/modules/drivers/net/wl/wl_apsta/wl_apsta.o">http://puma.ttc.cz/~jaha2x/openwrt/modules/drivers/net/wl/wl_apsta/wl_apsta.o</A>
+-		<A HREF="http://jak.kvalitne.cz/pub/puma.habrova.jarov.czf/~jaha2x/wl500/wl_apsta.o">http://jak.kvalitne.cz/pub/puma.habrova.jarov.czf/~jaha2x/wl500/wl_apsta.o</A>
+-3.130.20.0	<A HREF="http://openwrt.inf.fh-brs.de/~nbd/wl_apsta.o">http://openwrt.inf.fh-brs.de/~nbd/wl_apsta.o</A>
+-4.80.53.0	<A HREF="http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2">http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2</A>
++It is recommended that you extract firmware for both b43 and b43legacy in
++order to support both types of cards on your system.
+
+Modified: trunk/fwcutter/fwcutter.c
+===================================================================
+--- trunk/fwcutter/fwcutter.c	2007-08-08 13:59:04 UTC (rev 1227)
++++ trunk/fwcutter/fwcutter.c	2007-08-15 17:26:29 UTC (rev 1228)
+@@ -4,6 +4,7 @@
+  * Copyright (c) 2005 Martin Langer &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">martin-langer at gmx.de</A>&gt;,
+  *               2005 Michael Buesch &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">mbuesch at freenet.de</A>&gt;
+  *		 2005 Alex Beregszaszi
++ *		 2007 Johannes Berg &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">johannes at sipsolutions.net</A>&gt;
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -21,470 +22,242 @@
+  * Boston, MA 02110-1301, USA.
+  */
+ 
++#include &lt;stdlib.h&gt;
++#include &lt;ctype.h&gt;
++#include &lt;string.h&gt;
++#include &lt;stdio.h&gt;
++#include &lt;byteswap.h&gt;
++#include &lt;errno.h&gt;
++#include &lt;sys/stat.h&gt;
++#include &lt;sys/types.h&gt;
++
+ #include &quot;md5.h&quot;
+ #include &quot;fwcutter.h&quot;
+ #include &quot;fwcutter_list.h&quot;
+ 
+ 
+ static struct cmdline_args cmdargs;
+-int big_endian_cpu;
+ 
+-static void write_little_endian(FILE *f, byte *buffer, int len, uint8_t flags) 
++/* tiny disassembler */
++static void print_ucode_version(struct insn *insn)
+ {
+-	byte swapbuf[4];
++	int val;
+ 
+-	while (len &gt; 0) {
+-		swapbuf[0] = buffer[3]; swapbuf[1] = buffer[2];
+-		swapbuf[2] = buffer[1]; swapbuf[3] = buffer[0];
+-		fwrite(swapbuf, 4, 1, f);
+-		buffer = buffer + 4;
+-		len  = len - 4;
++	/*
++	 * The instruction we're looking for is a store to memory
++	 * offset insn-&gt;op3 of the constant formed like `val' below.
++	 * 0x2de00 is the opcode for type 1, 0x378 is the opcode
++	 * for type 2 and 3.
++	 */
++	if (insn-&gt;opcode != 0x378 &amp;&amp; insn-&gt;opcode != 0x2de00)
++		return;
+ 
+-		if (flags &amp; OLD_VERSION_STYLE_3_8)
+-			buffer = buffer + 8;
+-		if (flags &amp; OLD_VERSION_STYLE_3_10)
+-			buffer = buffer + 4;
+-	}
+-}
++	val = ((0xFF &amp; insn-&gt;op1) &lt;&lt; 8) | (0xFF &amp; insn-&gt;op2);
+ 
+-static void write_big_endian(FILE *f, byte *buffer, int len) 
+-{
+-	while (len &gt; 0) {
+-		fwrite(buffer, 4, 1, f);
+-		buffer = buffer + 4;
+-		len  = len - 4;
++	/*
++	 * Memory offsets are word-offsets, for the meaning
++	 * see <A HREF="http://bcm-v4.sipsolutions.net/802.11/ObjectMemory">http://bcm-v4.sipsolutions.net/802.11/ObjectMemory</A>
++	 */
++	switch (insn-&gt;op3) {
++	case 0:
++		printf(&quot;  ucode version:  %d\n&quot;, val);
++		break;
++	case 1:
++		printf(&quot;  ucode revision: %d\n&quot;, val);
++		break;
++	case 2:
++		printf(&quot;  ucode date:     %.4d-%.2d-%.2d\n&quot;,
++		       2000 + (val &gt;&gt; 12), (val &gt;&gt; 8) &amp; 0xF, val &amp; 0xFF);
++		break;
++	case 3:
++		printf(&quot;  ucode time:     %.2d:%.2d:%.2d\n&quot;,
++		       val &gt;&gt; 11, (val &gt;&gt; 5) &amp; 0x3f, val &amp; 0x1f);
++		break;
+ 	}
+ }
+ 
+-static void write_fw(const char *outfilename, uint8_t flags, 
+-		     byte *data, int len)
++static void disasm_ucode_1(uint64_t in, struct insn *out)
+ {
+-	FILE* fw;
+-	char outfile[2048];
++	/* xxyyyzzz00oooooX -&gt; ooooo Xxx yyy zzz
++	 * if we swap the upper and lower 32-bits first it becomes easier:
++	 * 00oooooxxxyyyzzz -&gt; ooooo xxx yyy zzz
++	 */
++	in = (in &gt;&gt; 32) | (in &lt;&lt; 32);
+ 
+-	snprintf(outfile, sizeof(outfile),
+-		 &quot;%s/%s&quot;, cmdargs.target_dir, outfilename);
+-
+-	fw = fopen(outfile, &quot;w&quot;);
+-	if (!fw) {
+-		perror(outfile);
+-		exit(1);
+-	}
+-
+-	if (flags &amp; BYTE_ORDER_LITTLE_ENDIAN)
+-		write_little_endian(fw, data, len, flags);
+-	else if (flags &amp; BYTE_ORDER_BIG_ENDIAN)
+-		write_big_endian(fw, data, len);
+-	else
+-		printf(&quot;unknown byteorder...\n&quot;);
+-
+-	fflush(fw);
+-	fclose(fw);
++	out-&gt;op3	= in &amp; 0xFFF;
++	out-&gt;op2	= (in &gt;&gt; 12) &amp; 0xFFF;
++	out-&gt;op1	= (in &gt;&gt; 24) &amp; 0xFFF;
++	out-&gt;opcode	= (in &gt;&gt; 36) &amp; 0xFFFFF;
++	/* the rest of the in word should be zero */
+ }
+ 
+-static void write_iv(uint8_t flags, uint8_t type, byte *data)
++static void disasm_ucode_2(uint64_t in, struct insn *out)
+ {
+-	FILE* fw;
+-	char ivfilename[2048];
+-	int ivnum=0, i=0, j;
++	/* xxyyyzzz0000oooX -&gt; ooo Xxx yyy zzz
++	 * if we swap the upper and lower 32-bits first it becomes easier:
++	 * 0000oooxxxyyyzzz -&gt; ooo xxx yyy zzz
++	 */
++	in = (in &gt;&gt; 32) | (in &lt;&lt; 32);
+ 
+-	while (ivmap[i].type) {
+-		if (type == ivmap[i].type)
+-			break;
+-		i++;
+-	}
+-
+-	if (!type) 
+-		return;
+-
+-	for (j = 0; j &lt; ivmap[i].number; j++) {
+-
+-		ivnum = ivmap[i].scheme[j];
+-		if (cmdargs.alt_iv) {
+-			if (ivmap[i].scheme[j] == 1)
+-				ivnum = 0;
+-			if (ivmap[i].scheme[j] &gt; ALT_IV_OFFSET)
+-				ivnum = ivmap[i].scheme[j] - ALT_IV_OFFSET;
+-		} else {
+-			if (ivmap[i].scheme[j] &gt; ALT_IV_OFFSET)
+-				ivnum = 0;
+-		}
+-
+-		snprintf(ivfilename, sizeof(ivfilename),
+-			 &quot;%s/bcm43xx_initval%02d%s.fw&quot;,
+-			 cmdargs.target_dir,
+-			 ivnum,
+-			 cmdargs.postfix);
+-
+-		/* don't extract initval 0 */
+-		if ( ivnum == 0 ) {
+-			if (flags &amp; OLD_VERSION_STYLE_3_8) {
+-				while (1) {
+-					if ((data[0]==0xff) &amp;&amp;
+-					    (data[1]==0xff) &amp;&amp;
+-					    (data[2]==0xff) &amp;&amp;
+-					    (data[3]==0xff) &amp;&amp;
+-					    (data[4]==0x00) &amp;&amp;
+-					    (data[5]==0x00) &amp;&amp;
+-					    (data[6]==0x00) &amp;&amp;
+-					    (data[7]==0x00))
+-						break;
+-
+-					data = data + 12;
+-				}
+-			} else {
+-				while (1) {
+-					if ((data[2]==0x00) &amp;&amp;
+-					    (data[3]==0x00) &amp;&amp;
+-					    (data[0]==0xff) &amp;&amp;
+-					    (data[1]==0xff))
+-						break;
+-
+-					data = data + 8;
+-				}
+-			}
+-		}
+-
+-		/* skip empty initval files */
+-		if (flags &amp; OLD_VERSION_STYLE_3_8) {
+-			if ((data[0]==0xff) &amp;&amp; (data[1]==0xff) &amp;&amp;
+-			    (data[2]==0xff) &amp;&amp; (data[3]==0xff) &amp;&amp;
+-			    (data[4]==0x00) &amp;&amp; (data[5]==0x00) &amp;&amp;
+-			    (data[6]==0x00) &amp;&amp; (data[7]==0x00)) {
+-				data = data + 12;
+-				continue;
+-			}
+-		} else {
+-			if ((data[2]==0x00) &amp;&amp; (data[3]==0x00) &amp;&amp;
+-			    (data[0]==0xff) &amp;&amp; (data[1]==0xff)) {
+-				data = data + 8;
+-				continue;
+-			}
+-		}
+-
+-		fw = fopen(ivfilename, &quot;w&quot;);
+-		if (!fw) {
+-			perror(ivfilename);
+-			exit(1);
+-		}
+-
+-		printf(&quot;extracting bcm43xx_initval%02d%s.fw ...\n&quot;, 
+-		       ivnum,
+-		       cmdargs.postfix);
+-
+-		while (1) {
+-
+-			if (flags &amp; OLD_VERSION_STYLE_3_8) {
+-
+-				if ((data[0]==0xff) &amp;&amp;
+-				    (data[1]==0xff) &amp;&amp;
+-				    (data[2]==0xff) &amp;&amp;
+-				    (data[3]==0xff) &amp;&amp;
+-				    (data[4]==0x00) &amp;&amp;
+-				    (data[5]==0x00) &amp;&amp;
+-				    (data[6]==0x00) &amp;&amp;
+-				    (data[7]==0x00)) {
+-					data = data + 12;
+-					break;
+-				}
+-
+-				if (flags &amp; BYTE_ORDER_LITTLE_ENDIAN)
+-					fprintf(fw, &quot;%c%c%c%c%c%c%c%c&quot;,
+-						/* offset */
+-						data[1], data[0],
+-						/* size */
+-						data[5], data[4],
+-						/* value */
+-						data[11], data[10], 
+-						data[9], data[8]);
+-
+-				data = data + 12;
+-				continue;
+-			}
+-
+-			if ((data[2]==0x00) &amp;&amp; (data[3]==0x00)) {
+-				if ((data[0]==0x00) &amp;&amp; 
+-				    (data[1]==0x00) &amp;&amp;
+-				    (data[4]==0x00) &amp;&amp; 
+-				    (data[5]==0x00) &amp;&amp;
+-				    (data[6]==0x00) &amp;&amp; 
+-				    (data[7]==0x00)) {
+-					data = data + 8;
+-					continue;
+-				} else if ((data[0]==0xff) &amp;&amp; 
+-					   (data[1]==0xff)) {
+-					data = data + 8;
+-					break;
+-				}
+-			}
+-
+-			if (flags &amp; BYTE_ORDER_LITTLE_ENDIAN)
+-				fprintf(fw, &quot;%c%c%c%c%c%c%c%c&quot;,
+-					/* offset */
+-					data[1], data[0],
+-					/* size */
+-					data[3], data[2],
+-					/* value */
+-					data[7], data[6], data[5], data[4]);
+-			else if (flags &amp; BYTE_ORDER_BIG_ENDIAN)
+-				fprintf(fw, &quot;%c%c%c%c%c%c%c%c&quot;,
+-					/* offset */
+-					data[0], data[1],
+-					/* size */
+-					data[2], data[3],
+-					/* value */
+-					data[4], data[5], data[6], data[7]);
+-			else {
+-				printf(&quot;unknown byteorder...\n&quot;);
+-				exit(1);
+-			}
+-
+-			data = data + 8;
+-		};
+-
+-		fflush(fw);
+-		fclose(fw);
+-	}
++	out-&gt;op3	= in &amp; 0xFFF;
++	out-&gt;op2	= (in &gt;&gt; 12) &amp; 0xFFF;
++	out-&gt;op1	= (in &gt;&gt; 24) &amp; 0xFFF;
++	out-&gt;opcode	= (in &gt;&gt; 36) &amp; 0xFFF;
++	/* the rest of the in word should be zero */
+ }
+ 
+-static byte* read_file(const char* filename)
++static void disasm_ucode_3(uint64_t in, struct insn *out)
+ {
+-	FILE* file;
+-	long len;
+-	byte* data;
++	/*
++	 * like 2, but each operand has one bit more; appears
++	 * to use the same instruction set slightly extended
++	 */
++	in = (in &gt;&gt; 32) | (in &lt;&lt; 32);
+ 
+-	file = fopen(filename, &quot;rb&quot;);
+-	if (!file) {
+-		perror(filename);
+-		exit(1);
+-	}
+-	if (fseek(file, 0, SEEK_END)) {
+-		perror(&quot;cannot seek&quot;);
+-		exit(1);
+-	}
+-	len = ftell(file);
+-	fseek(file, 0, SEEK_SET);
+-	data = malloc(len);
+-	if (!data) {
+-		fputs(&quot;out of memory\n&quot;, stderr);
+-		exit(1);
+-	}
+-	if (fread(data, 1, len, file) != len) {
+-		perror(&quot;cannot read&quot;);
+-		exit(1);
+-	}
+-	fclose(file);
+-	return data;
++	out-&gt;op3	= in &amp; 0x1FFF;
++	out-&gt;op2	= (in &gt;&gt; 13) &amp; 0x1FFF;
++	out-&gt;op1	= (in &gt;&gt; 26) &amp; 0x1FFF;
++	out-&gt;opcode	= (in &gt;&gt; 39) &amp; 0xFFF;
++	/* the rest of the in word should be zero */
+ }
+ 
+-static void extract_fw(uint8_t fwtype, uint8_t flags, 
+-		       uint32_t pos, uint32_t length)
++static void analyse_ucode(int ucode_rev, uint8_t *data, uint32_t len)
+ {
+-	byte* filedata;
+-	char outfile[1024];
++	uint64_t *insns = (uint64_t*)data;
++	struct insn insn;
++	uint32_t i;
+ 
+-	switch (fwtype) {
+-	case FIRMWARE_UCODE_2:
+-	case FIRMWARE_UCODE_4:
+-	case FIRMWARE_UCODE_5:
+-	case FIRMWARE_UCODE_11:
+-	case FIRMWARE_UCODE_13:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_microcode%i%s.fw&quot;, 
+-			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
+-		break;
+-	case FIRMWARE_PCM_4:
+-	case FIRMWARE_PCM_5:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_pcm%i%s.fw&quot;, 
+-			 fwtype, cmdargs.postfix);
+-		break;
+-	default:
+-		snprintf(outfile, sizeof(outfile), &quot;bcm43xx_unknown.fw&quot;);
+-	}
+-
+-	if (length &gt; 0) {
+-		printf(&quot;extracting %s ...\n&quot;, outfile);
+-		filedata = read_file(cmdargs.infile);
+-		write_fw(outfile, flags, filedata + pos, length);
+-		free(filedata);
+-	} else {
+-		printf(&quot;WARNING! This binary driver doesn't contain \&quot;%s\&quot;.\n&quot;,
+-		       outfile);
+-
+-		switch (fwtype) {
+-		case FIRMWARE_UCODE_2:
+-		case FIRMWARE_UCODE_4:
+-			printf(&quot;WARNING! Therefore bcm43xx with 0x812 cores &quot;
+-			       &quot;rev 0x%x will not work.\n&quot;, 
+-			       fwtype - FIRMWARE_UCODE_OFFSET);
++	for (i=0; i&lt;len/sizeof(*insns); i++) {
++		switch (ucode_rev) {
++		case 1:
++			disasm_ucode_1(insns[i], &amp;insn);
++			print_ucode_version(&amp;insn);
+ 			break;
+-		case FIRMWARE_UCODE_5:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
+-			       &quot;rev 0x5 up to 0xa will not work.\n&quot;);
++		case 2:
++			disasm_ucode_2(insns[i], &amp;insn);
++			print_ucode_version(&amp;insn);
+ 			break;
+-		case FIRMWARE_UCODE_11:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
+-			       &quot;rev 0xb or 0xc will not work.\n&quot;);
++		case 3:
++			disasm_ucode_3(insns[i], &amp;insn);
++			print_ucode_version(&amp;insn);
+ 			break;
+-		case FIRMWARE_UCODE_13:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
+-			       &quot;rev 0xd or greater will not work.\n&quot;);
+-			break;
+-		case FIRMWARE_PCM_4:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
+-			       &quot;rev 0x%x or smaller will not work.\n&quot;, 
+-			       fwtype);
+-			break;
+-		case FIRMWARE_PCM_5:
+-			printf(&quot;WARNING! Therefore bcm43xx with cores 0x812 &quot;
+-			       &quot;rev 0x%x or greater will not work.\n&quot;, 
+-			       fwtype);
+-			break;
+ 		}
+ 	}
+ }
+ 
+-static void extract_iv(uint8_t flags, uint32_t pos, uint8_t type)
++static void swap_endianness_ucode(uint8_t *buf, uint32_t len)
+ {
+-	byte* filedata;
++	uint32_t *buf32 = (uint32_t*)buf;
++	uint32_t i;
+ 
+-	if (pos &gt; 0) {
+-		filedata = read_file(cmdargs.infile);
+-		write_iv(flags, type, filedata + pos);
+-		free(filedata);
+-	}
++	for (i=0; i&lt;len/4; i++)
++		buf32[i] = bswap_32(buf32[i]);
+ }
+ 
+-static void print_ucode_version(uint32_t fwdata)
++#define swap_endianness_pcm swap_endianness_ucode
++
++static void swap_endianness_iv(uint8_t *buf, uint32_t len)
+ {
+-	switch (fwdata &amp; 0xfff) {
+-	case 0x000:
+-		printf(&quot;  revision   :  0x%.4x\n&quot;, 
+-		       ((fwdata &gt;&gt; 12) &amp; 0xff) +
+-		       (((fwdata &gt;&gt; 16) &amp; 0xff00)));
+-		break;
+-	case 0x001:
+-		printf(&quot;  patchlevel :  0x%.4x\n&quot;, 
+-		       ((fwdata &gt;&gt; 12) &amp; 0xff) +
+-		       (((fwdata &gt;&gt; 16) &amp; 0xff00)));
+-		break;
+-	case 0x002:
+-		printf(&quot;  date       :  20%.2i-%.2i-%.2i\n&quot;, 
+-		       (fwdata &gt;&gt; 28) &amp; 0xf,
+-		       (fwdata &gt;&gt; 24) &amp; 0xf,
+-		       (fwdata &gt;&gt; 12) &amp; 0xff);
+-		break;
+-	case 0x003:
+-		printf(&quot;  time       :  %.2i:%.2i:%.2i\n&quot;, 
+-		       fwdata &gt;&gt; 27,
+-		       ((fwdata &gt;&gt; 17) &amp; 0x7) + ((fwdata &gt;&gt; 21) &amp; 0x38),
+-		       (fwdata &gt;&gt; 12) &amp; 0x1f);
+-		break;
++	struct iv *iv = (struct iv*)buf;
++	uint32_t i;
++
++	for (i=0; i&lt;len/sizeof(*iv); i++) {
++		iv[i].reg = bswap_16(iv[i].reg);
++		iv[i].size = bswap_16(iv[i].size);
++		iv[i].val = bswap_32(iv[i].val);
+ 	}
+ }
+ 
+-static void analyse_ucode(int type, const struct file * f, byte * data)
++static void write_file(const char *name, uint8_t *buf, uint32_t len,
++		       uint32_t flags)
+ {
+-	uint32_t fwdata = 0;
++	FILE *f;
++	char nbuf[4096];
++	const char *dir;
++	int r;
+ 
+-	if (f-&gt;flags &amp; OLD_VERSION_STYLE_3_8) {
+-		if (data[12]==0x0c &amp;&amp; data[13]==0xe0 &amp;&amp;
+-		    data[14]==0x2d &amp;&amp; data[15]==0x00) {
+-			fwdata = data[0] + (data[1]&lt;&lt;8) + 
+-				(data[2]&lt;&lt;16) + (data[3]&lt;&lt;24);
+-			print_ucode_version(fwdata);
+-		}
+-		return;
++	if (flags &amp; FW_FLAG_V4)
++		dir = &quot;b43&quot;;
++	else
++		dir = &quot;b43legacy&quot;;
++
++	r = snprintf(nbuf, sizeof(nbuf),
++		     &quot;%s/%s&quot;, cmdargs.target_dir, dir);
++	if (r &gt;= sizeof(nbuf)) {
++		fprintf(stderr, &quot;name too long&quot;);
++		exit(2);
+ 	}
+ 
+-	if (f-&gt;flags &amp; OLD_VERSION_STYLE_3_10) {
+-		if (data[8]==0x0c &amp;&amp; data[9]==0xe0 &amp;&amp;
+-		    data[10]==0x2d &amp;&amp; data[11]==0x00) {
+-			fwdata = data[0] + (data[1]&lt;&lt;8) + 
+-				(data[2]&lt;&lt;16) + (data[3]&lt;&lt;24);
+-			print_ucode_version(fwdata);
+-		}
+-		return;
++	r = mkdir(nbuf, 0770);
++	if (r &amp;&amp; errno != EEXIST) {
++		perror(&quot;failed to create output directory&quot;);
++		exit(2);
+ 	}
+ 
+-	if (f-&gt;flags &amp; BYTE_ORDER_LITTLE_ENDIAN) {
+-		if ((type==FIRMWARE_UCODE_2) || (type==FIRMWARE_UCODE_4)) {
+-			if (data[4]==0x0c &amp;&amp; data[5]==0xe0 &amp;&amp;
+-			    data[6]==0x2d &amp;&amp; data[7]==0x00) {
+-				fwdata = data[0] + (data[1]&lt;&lt;8) + 
+-					(data[2]&lt;&lt;16) + (data[3]&lt;&lt;24);
+-				print_ucode_version(fwdata);
+-			}
+-		} else {
+-			if (data[4]==0x8c &amp;&amp; data[5]==0x37 &amp;&amp;
+-			    data[6]==0x00 &amp;&amp; data[7]==0x00) {
+-				fwdata = data[0] + (data[1]&lt;&lt;8) + 
+-					(data[2]&lt;&lt;16) + (data[3]&lt;&lt;24);
+-				print_ucode_version(fwdata);
+-			}
+-		}
+-	} else if (f-&gt;flags &amp; BYTE_ORDER_BIG_ENDIAN) {
+-		if ((type==FIRMWARE_UCODE_2) || (type==FIRMWARE_UCODE_4)) {
+-			if (data[7]==0x0c &amp;&amp; data[6]==0xe0 &amp;&amp;
+-			    data[5]==0x2d &amp;&amp; data[4]==0x00) {
+-				fwdata = data[3] + (data[2]&lt;&lt;8) + 
+-					(data[1]&lt;&lt;16) + (data[0]&lt;&lt;24);
+-				print_ucode_version(fwdata);
+-			}
+-		} else {
+-			if (data[7]==0x8c &amp;&amp; data[6]==0x37 &amp;&amp;
+-			    data[5]==0x00 &amp;&amp; data[4]==0x00) {
+-				fwdata = data[3] + (data[2]&lt;&lt;8) + 
+-					(data[1]&lt;&lt;16) + (data[0]&lt;&lt;24);
+-				print_ucode_version(fwdata);
+-			}
+-		}
++	r = snprintf(nbuf, sizeof(nbuf),
++		     &quot;%s/%s/%s&quot;, cmdargs.target_dir, dir, name);
++	if (r &gt;= sizeof(nbuf)) {
++		fprintf(stderr, &quot;name too long&quot;);
++		exit(2);
+ 	}
++	f = fopen(nbuf, &quot;w&quot;);
++	if (!f) {
++		perror(&quot;failed to open file&quot;);
++		exit(2);
++	}
++	fwrite(buf, 1, len, f);
++	fclose(f);
+ }
+ 
+-static void get_ucode_rev(int type, const struct file * f, int pos, int len)
++static void extract_or_identify(FILE *f, const struct extract *extract,
++				uint32_t flags)
+ {
+-	byte* data;
+-	int len_count = 0;
++	uint8_t *buf;
++	int ucode_rev = 0;
+ 
+-	if (len == 0) return;
+-	printf(&quot;  microcode  :  %i\n&quot;, type - FIRMWARE_UCODE_OFFSET);
++	if (fseek(f, extract-&gt;offset, SEEK_SET)) {
++		perror(&quot;failed to seek on file&quot;);
++		exit(2);
++	}
+ 
+-	data = read_file(cmdargs.infile) + pos;
+-	while (len_count &lt; len) {
+-		analyse_ucode(type, f, data);
+-		len_count = len_count + 8;
+-		data = data + 8;
+-		if (f-&gt;flags &amp; OLD_VERSION_STYLE_3_8)
+-			data = data + 16;
+-		if (f-&gt;flags &amp; OLD_VERSION_STYLE_3_10)
+-			data = data + 8;
++	buf = malloc(extract-&gt;length);
++	if (fread(buf, 1, extract-&gt;length, f) != extract-&gt;length) {
++		perror(&quot;failed to read complete data&quot;);
++		exit(3);
+ 	}
+ 
+-	printf(&quot;\n&quot;);
+-}
++	switch (extract-&gt;type) {
++	case EXT_UCODE_3:
++		ucode_rev += 1;
++	case EXT_UCODE_2:
++		ucode_rev += 1;
++	case EXT_UCODE_1:
++		ucode_rev += 1;
++		if (flags &amp; FW_FLAG_LE)
++			swap_endianness_ucode(buf, extract-&gt;length);
++		analyse_ucode(ucode_rev, buf, extract-&gt;length);
++		break;
++	case EXT_PCM:
++		if (flags &amp; FW_FLAG_LE)
++			swap_endianness_pcm(buf, extract-&gt;length);
++		break;
++	case EXT_IV:
++		if (flags &amp; FW_FLAG_LE)
++			swap_endianness_iv(buf, extract-&gt;length);
++		break;
++	default:
++		exit(255);
++	}
+ 
+-static void get_ucode_info(const struct file * f)
+-{
+-	get_ucode_rev(FIRMWARE_UCODE_2, f, 
+-		      f-&gt;uc2_pos, 
+-		      f-&gt;uc2_length);
+-	get_ucode_rev(FIRMWARE_UCODE_4, f, 
+-		      f-&gt;uc4_pos, 
+-		      f-&gt;uc4_length);
+-	get_ucode_rev(FIRMWARE_UCODE_5, f, 
+-		      f-&gt;uc5_pos, 
+-		      f-&gt;uc5_length);
+-	get_ucode_rev(FIRMWARE_UCODE_11, f, 
+-		      f-&gt;uc11_pos, 
+-		      f-&gt;uc11_length);
+-	get_ucode_rev(FIRMWARE_UCODE_13, f, 
+-		      f-&gt;uc13_pos, 
+-		      f-&gt;uc13_length);
++	if (!cmdargs.identify_only)
++		write_file(extract-&gt;name, buf, extract-&gt;length, flags);
++
++	free(buf);
+ }
+ 
+ static void print_banner(void)
+ {
+-	printf(&quot;bcm43xx-fwcutter version &quot; FWCUTTER_VERSION &quot;\n&quot;);
++	printf(&quot;b43-fwcutter version &quot; FWCUTTER_VERSION &quot;\n&quot;);
+ }
+ 
+ static void print_file(const struct file *file)
+@@ -492,8 +265,14 @@
+ 	char filename[30];
+ 	char shortname[30];
+ 
++	if (file-&gt;flags &amp; FW_FLAG_V4)
++		printf(&quot;b43\t\t&quot;);
++	else
++		printf(&quot;b43legacy\t&quot;);
++
+ 	if (strlen(file-&gt;name) &gt; 20) {
+-		strncpy(shortname, file-&gt;name, 18);
++		strncpy(shortname, file-&gt;name, 20);
++		shortname[20] = '\0';
+ 		snprintf(filename, sizeof(filename), &quot;%s..&quot;, shortname);
+ 	} else
+ 		strcpy (filename, file-&gt;name);
+@@ -502,46 +281,34 @@
+ 	if (strlen(filename) &lt; 8) printf(&quot;\t&quot;);
+ 	if (strlen(filename) &lt; 16) printf(&quot;\t&quot;);
+ 
+-	printf(&quot;%s\t&quot;, file-&gt;version);
+-	if (strlen(file-&gt;version) &lt; 8) printf(&quot;\t&quot;);
+-	if (strlen(file-&gt;version) &lt; 16) printf(&quot;\t&quot;);
++	printf(&quot;%s\t&quot;, file-&gt;ucode_version);
++	if (strlen(file-&gt;ucode_version) &lt; 8) printf(&quot;\t&quot;);
+ 
+ 	printf(&quot;%s\n&quot;, file-&gt;md5);
+ }
+ 
+ static void print_supported_files(void)
+ {
+-	int printout_unsupported = 0;
+ 	int i;
+ 
+ 	print_banner();
+ 	printf(&quot;\nExtracting firmware is possible &quot;
+ 	       &quot;from these binary driver files:\n\n&quot;);
+-	printf(&quot;&lt;filename&gt;\t\t&quot;
+-	       &quot;&lt;version&gt;\t\t&quot;
++	printf(&quot;&lt;driver&gt;\t&quot;
++	       &quot;&lt;filename&gt;\t\t&quot;
++	       &quot;&lt;microcode&gt;\t&quot;
+ 	       &quot;&lt;MD5 checksum&gt;\n\n&quot;);
+-	for (i = 0; i &lt; FILES; i++) {
+-		if (files[i].flags &amp; DRIVER_UNSUPPORTED) {
+-			printout_unsupported = 1;
+-			continue;
+-		}
+-		print_file(&amp;files[i]);
+-	}
+-	if (printout_unsupported == 0) return;
+-
+-	printf(&quot;\n\nExtracting firmware is IMPOSSIBLE &quot;
+-	       &quot;from these binary driver files:\n\n&quot;);
+-	printf(&quot;&lt;filename&gt;\t\t&quot;
+-	       &quot;&lt;version&gt;\t\t&quot;
+-	       &quot;&lt;MD5 checksum&gt;\n\n&quot;);
+-	for (i = 0; i &lt; FILES; i++) {
+-		if (!(files[i].flags &amp; DRIVER_UNSUPPORTED))
+-			continue;
+-		print_file(&amp;files[i]);
+-	}
++	/* print for legacy driver first */
++	for (i = 0; i &lt; FILES; i++)
++		if (!(files[i].flags &amp; FW_FLAG_V4))
++			print_file(&amp;files[i]);
++	for (i = 0; i &lt; FILES; i++)
++		if (files[i].flags &amp; FW_FLAG_V4)
++			print_file(&amp;files[i]);
++	printf(&quot;\n&quot;);
+ }
+ 
+-static const struct file * find_file(FILE *fd)
++static const struct file *find_file(FILE *fd)
+ {
+ 	unsigned char buffer[16384], signature[16];
+ 	struct MD5Context md5c;
+@@ -563,65 +330,20 @@
+ 
+ 	for (i = 0; i &lt; FILES; ++i) {
+ 		if (strcasecmp(md5sig, files[i].md5) == 0) {
+-			if (files[i].flags &amp; DRIVER_UNSUPPORTED) {
+-				printf(&quot;Extracting firmware from this file &quot;
+-				       &quot;is IMPOSSIBLE. (e.g. too old/new)\n&quot;);
+-				return 0;
+-			}
+-			if (files[i].flags &amp; V4_FIRMWARE) {
+-				printf(&quot;*** WARNING ***\n&quot;
+-				       &quot;This file contains new version4 \n&quot;
+-				       &quot;firmware. v4 firmware is _not_ supported by \n&quot;
+-				       &quot;the driver in mainline kernels. For v4 firmware \n&quot;
+-				       &quot;you need latest bcm43xx development version \n&quot;
+-				       &quot;(wireless-dev kernel tree). If you don't know what \n&quot;
+-				       &quot;this warning is about, use a 3.xx.xx.xx driver version \n&quot;
+-				       &quot;instead to extract the firmware.\n&quot;);
+-			}
+-			printf(&quot;\n  filename   :  %s\n&quot;, files[i].name);
+-			printf(&quot;  version    :  %s\n&quot;, files[i].version);
++			printf(&quot;This file is recognised as:\n&quot;);
++			printf(&quot;  filename   :  %s\n&quot;, files[i].name);
++			printf(&quot;  version    :  %s\n&quot;, files[i].ucode_version);
+ 			printf(&quot;  MD5        :  %s\n&quot;, files[i].md5);
+-			printf(&quot;  microcodes :  &quot;);
+-			if (files[i].uc2_length &gt; 0) printf(&quot;2 &quot;);
+-			if (files[i].uc4_length &gt; 0) printf(&quot;4 &quot;);
+-			if (files[i].uc5_length &gt; 0) printf(&quot;5 &quot;);
+-			if (files[i].uc11_length &gt; 0) printf(&quot;11 &quot;);
+-			if (files[i].uc13_length &gt; 0) printf(&quot;13 &quot;);
+-			printf(&quot;\n  pcms       :  &quot;);
+-			if (files[i].pcm4_length &gt; 0) printf(&quot;4 &quot;);
+-			if (files[i].pcm5_length &gt; 0) printf(&quot;5 &quot;);
+-			printf(&quot;\n\n&quot;);
+-			if (files[i].flags &amp; MISSING_INITVAL_80211_A) {
+-				printf(&quot;WARNING! This firmware doesn't &quot;
+-				       &quot;include support for 802.11a cards.\n&quot;);
+-				printf(&quot;WARNING! Use this firmware only for &quot;
+-				       &quot;802.11b/g cards.\n\n&quot;);
+-			}
+-			return &amp;(files[i]);
++			return &amp;files[i];
+ 		}
+ 	}
+ 	printf(&quot;Sorry, the input file is either wrong or &quot;
+-	       &quot;not supported by bcm43xx-fwcutter.\n&quot;);
++	       &quot;not supported by b43-fwcutter.\n&quot;);
+ 	printf(&quot;This file has an unknown MD5sum %s.\n&quot;, md5sig);
+ 
+-	return 0;
++	return NULL;
+ }
+ 
+-static void get_endianess(void)
+-{
+-	const unsigned char x[] = { 0xde, 0xad, 0xbe, 0xef, };
+-	const uint32_t *p = (uint32_t *)x;
+-
+-	if (*p == 0xdeadbeef) {
+-		big_endian_cpu = 1;
+-	} else if (*p == 0xefbeadde) {
+-		big_endian_cpu = 0;
+-	} else {
+-		printf(&quot;Confused: NUXI endian machine??\n&quot;);
+-		exit(-1);
+-	}
+-}
+-
+ static void print_usage(int argc, char *argv[])
+ {
+ 	print_banner();
+@@ -632,12 +354,8 @@
+ 	       &quot;Only identify the driver file (don't extract)\n&quot;);
+ 	printf(&quot;  -w|--target-dir DIR   &quot;
+ 	       &quot;Extract and write firmware to DIR\n&quot;);
+-	printf(&quot;  -a|--alt-iv           &quot;
+-	       &quot;Extract alternative initvals (only 3.10.x.x)\n&quot;);
+-	printf(&quot;  -p|--postfix \&quot;.FOO\&quot;   &quot;
+-	       &quot;Postfix for firmware filenames (.FOO.fw)\n&quot;);
+ 	printf(&quot;  -v|--version          &quot;
+-	       &quot;Print bcm43xx-fwcutter version\n&quot;);
++	       &quot;Print b43-fwcutter version\n&quot;);
+ 	printf(&quot;  -h|--help             &quot;
+ 	       &quot;Print this help\n&quot;);
+ 	printf(&quot;\nExample: %s bcmwl5.sys\n&quot;
+@@ -749,20 +467,6 @@
+ 		} else if (res == ARG_ERROR)
+ 			goto out;
+ 
+-		res = cmp_arg(argv, &amp;i, &quot;--postfix&quot;, &quot;-p&quot;, &amp;param);
+-		if (res == ARG_MATCH) {
+-			cmdargs.postfix = param;
+-			continue;
+-		} else if (res == ARG_ERROR)
+-			goto out;
+-
+-		res = cmp_arg(argv, &amp;i, &quot;--alt-iv&quot;, &quot;-a&quot;, 0);
+-		if (res == ARG_MATCH) {
+-			cmdargs.alt_iv = 1;
+-			continue;
+-		} else if (res == ARG_ERROR)
+-			goto out;
+-
+ 		cmdargs.infile = argv[i];
+ 		break;
+ 	}
+@@ -781,12 +485,11 @@
+ {
+ 	FILE *fd;
+ 	const struct file *file;
++	const struct extract *extract;
+ 	int err;
++	const char *dir;
+ 
+-	get_endianess();
+-
+ 	cmdargs.target_dir = &quot;.&quot;;
+-	cmdargs.postfix = &quot;&quot;;
+ 	err = parse_args(argc, argv);
+ 	if (err == 1)
+ 		return 0;
+@@ -804,53 +507,20 @@
+ 	if (!file)
+ 		goto out_close;
+ 
+-	get_ucode_info(file);
++	if (file-&gt;flags &amp; FW_FLAG_V4)
++		dir = &quot;b43&quot;;
++	else
++		dir = &quot;b43legacy&quot;;
+ 
+-	if (cmdargs.identify_only) {
+-		err = 0;
+-		goto out_close;
++	extract = file-&gt;extract;
++	while (extract-&gt;name) {
++		printf(&quot;%s %s/%s\n&quot;,
++		       cmdargs.identify_only ? &quot;Contains&quot; : &quot;Extracting&quot;,
++		       dir, extract-&gt;name);
++		extract_or_identify(fd, extract, file-&gt;flags);
++		extract++;
+ 	}
+ 
+-	if (file-&gt;uc2_length &gt; 0)
+-		extract_fw(FIRMWARE_UCODE_2, 
+-			   file-&gt;flags, 
+-			   file-&gt;uc2_pos, 
+-			   file-&gt;uc2_length);
+-	if (file-&gt;uc4_length &gt; 0)
+-		extract_fw(FIRMWARE_UCODE_4, 
+-			   file-&gt;flags, 
+-			   file-&gt;uc4_pos, 
+-			   file-&gt;uc4_length);
+-	if (file-&gt;uc5_length &gt; 0)
+-		extract_fw(FIRMWARE_UCODE_5, 
+-			   file-&gt;flags, 
+-			   file-&gt;uc5_pos, 
+-			   file-&gt;uc5_length);
+-	if (file-&gt;uc11_length &gt; 0)
+-		extract_fw(FIRMWARE_UCODE_11, 
+-			   file-&gt;flags, 
+-			   file-&gt;uc11_pos, 
+-			   file-&gt;uc11_length);
+-	if (file-&gt;uc13_length &gt; 0)
+-		extract_fw(FIRMWARE_UCODE_13, 
+-			   file-&gt;flags, 
+-			   file-&gt;uc13_pos, 
+-			   file-&gt;uc13_length);
+-	if (file-&gt;pcm4_length &gt; 0)
+-		extract_fw(FIRMWARE_PCM_4, 
+-			   file-&gt;flags, 
+-			   file-&gt;pcm4_pos, 
+-			   file-&gt;pcm4_length);
+-	if (file-&gt;pcm5_length &gt; 0)
+-		extract_fw(FIRMWARE_PCM_5, 
+-			   file-&gt;flags, 
+-			   file-&gt;pcm5_pos, 
+-			   file-&gt;pcm5_length);
+-	if (file-&gt;iv_map &gt; 0)
+-		extract_iv(file-&gt;flags, 
+-			   file-&gt;iv_pos, 
+-			   file-&gt;iv_map);
+-
+ 	err = 0;
+ out_close:
+ 	fclose(fd);
+
+Modified: trunk/fwcutter/fwcutter.h
+===================================================================
+--- trunk/fwcutter/fwcutter.h	2007-08-08 13:59:04 UTC (rev 1227)
++++ trunk/fwcutter/fwcutter.h	2007-08-15 17:26:29 UTC (rev 1228)
+@@ -1,33 +1,9 @@
+ #ifndef _FWCUTTER_H_
+ #define _FWCUTTER_H_
+ 
+-#include &lt;stdlib.h&gt;
+-#include &lt;ctype.h&gt;
+-#include &lt;string.h&gt;
+-#include &lt;stdio.h&gt;
++#define FW_FLAG_LE	0x01	/* little endian? convert */
++#define FW_FLAG_V4	0x02	/* b43 vs. b43legacy */
+ 
+-#define DRIVER_UNSUPPORTED       0x01  /* no support for this driver file */
+-#define BYTE_ORDER_BIG_ENDIAN    0x02  /* ppc, bcm6345/6348 driver files */
+-#define BYTE_ORDER_LITTLE_ENDIAN 0x04  /* x86, mips driver files */
+-#define MISSING_INITVAL_80211_A  0x08  /* empty initvals 3,7,9,10 */
+-#define OLD_VERSION_STYLE_3_8    0x10  /* 3.10.8.x drivers differ */
+-#define OLD_VERSION_STYLE_3_10   0x20  /* 3.10.3x.x drivers differ */
+-#define V4_FIRMWARE              0x40  /* This marks version-4 firmwares and will emit a warning */
+-
+-#define FIRMWARE_UCODE_OFFSET    100
+-#define FIRMWARE_UNDEFINED       0
+-#define FIRMWARE_PCM_4           4
+-#define FIRMWARE_PCM_5           5
+-#define FIRMWARE_UCODE_2         (FIRMWARE_UCODE_OFFSET + 2)
+-#define FIRMWARE_UCODE_4         (FIRMWARE_UCODE_OFFSET + 4)
+-#define FIRMWARE_UCODE_5         (FIRMWARE_UCODE_OFFSET + 5)
+-#define FIRMWARE_UCODE_11        (FIRMWARE_UCODE_OFFSET + 11)
+-#define FIRMWARE_UCODE_13        (FIRMWARE_UCODE_OFFSET + 13)
+-
+-/* alternative initvals */
+-#define ALT_IV_OFFSET            100
+-#define ALT_IV_01                (ALT_IV_OFFSET + 1)
+-
+ #define fwcutter_stringify_1(x)	#x
+ #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
+ #define FWCUTTER_VERSION	fwcutter_stringify(FWCUTTER_VERSION_)
+@@ -36,151 +12,46 @@
+ #define ARG_NOMATCH	1
+ #define ARG_ERROR	-1
+ 
+-typedef unsigned char byte;
+-
+-enum { /* initvals numbering schemes */
+-	INITVALS_MAP_UNKNOWN = 0,
+-	INITVALS_MAP_V3_8_X,
+-	INITVALS_MAP_V3_10_8,
+-	INITVALS_MAP_V3_10_3X,
+-	INITVALS_MAP_V3_10_53_6,
+-	INITVALS_MAP_V3_WITHOUT_IV8,
+-	INITVALS_MAP_V3_DEFAULT,
+-	INITVALS_MAP_V3_REVERSE_ORDER,
+-	INITVALS_MAP_V3_UP_TO_REV11,
+-	INITVALS_MAP_V3_UP_TO_REV11_REVERSE_ORDER,
+-	INITVALS_MAP_V4_UP_TO_REV11,
+-	INITVALS_MAP_V4_UP_TO_REV13,
+-	INITVALS_MAP_V4_80_46,
+-	INITVALS_MAP_V4_80_46_REVERSE_ORDER,
+-	INITVALS_MAP_V4_102,
+-};
+-
+ struct cmdline_args {
+ 	const char *infile;
+-	const char *postfix;
+ 	const char *target_dir;
+-	int alt_iv;
+ 	int identify_only;
+ };
+ 
+-struct file {
+-	const char *name;
+-	const char *version;
+-	const char *md5;
+-	const uint8_t flags;
+-	const uint32_t iv_pos;
+-	const uint8_t iv_map;
+-	const uint32_t uc2_pos;
+-	const uint32_t uc2_length;
+-	const uint32_t uc4_pos;
+-	const uint32_t uc4_length;
+-	const uint32_t uc5_pos;
+-	const uint32_t uc5_length;
+-	const uint32_t uc11_pos;
+-	const uint32_t uc11_length;
+-	const uint32_t uc13_pos;
+-	const uint32_t uc13_length;
+-	const uint32_t pcm4_pos;
+-	const uint32_t pcm4_length;
+-	const uint32_t pcm5_pos;
+-	const uint32_t pcm5_length;
++struct insn {
++	uint32_t opcode;
++	uint16_t op1, op2, op3;
+ };
+ 
+-struct initval_mapdef {
+-	const uint8_t type;
+-	const uint8_t number;
+-	const uint8_t scheme[30];
+-	};
++struct iv {
++	uint16_t reg, size;
++	uint32_t val;
++} __attribute__((__packed__));
+ 
+-static struct initval_mapdef ivmap[] =
+-{
+-	/* core rev 0x2, 0x4 initval numbers: 1, 2, 3, 4 */
+-	/* core rev 0x5 initval numbers: 5, 6, 7, 8, 9, 10 */
+-	/* core rev 0x9 initval numbers: 11, 12, 13, 14, 15, 16 */
+-	/* core rev 0xb initval numbers: 17, 18 */
+-	/* core rev 0xd initval numbers: 19, 20 */
++enum extract_type {
++	EXT_UNDEFINED, /* error catcher  */
++	EXT_UCODE_1,   /* rev  &lt;= 4 ucode */
++	EXT_UCODE_2,   /* rev 5..14 ucode */
++	EXT_UCODE_3,   /* rev &gt;= 15 ucode */
++	EXT_PCM,       /* &quot;pcm&quot; values   */
++	EXT_IV,        /* initial values */
++};
+ 
+-	/* version 3.8.27.0, 3.8.28.0, 3.8.37.0 */
+-	{ INITVALS_MAP_V3_8_X, 1, 
+-	  { 1 } 
+-	},
++struct extract {
++	const char *name;
++	const uint32_t offset;
++	const uint32_t length;
++	const enum extract_type type;
++};
+ 
+-	/* version 3.10.8.0 */
+-	{ INITVALS_MAP_V3_10_8, 8,
+-	  /* This driver has two variations of initval number 1 inside. */
+-	  { 3, 0, 0, 1, 0, 0, 0, ALT_IV_01 }
+-	},
++#define EXTRACT_LIST_END { .name = NULL, }
+ 
+-	/* version 3.10.36.0, 3.10.39.x, 3.10.53.0 */
+-	{ INITVALS_MAP_V3_10_3X, 3,
+-	  /* This driver has two variations of initval number 1 inside. */
+-	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
+-	  { 3, ALT_IV_01, 1 }
+-	},
+-
+-	/* version 3.10.53.6 */
+-	{ INITVALS_MAP_V3_10_53_6, 4,
+-	  /* This driver has two variations of initval number 1 inside. */
+-	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
+-	  { 3, 0, 1, ALT_IV_01 }
+-	},
+-
+-	/* initval number 8 is missing in 3.20 and 3.30 */
+-	{ INITVALS_MAP_V3_WITHOUT_IV8, 9,
+-	  { 1, 2, 3, 4, 5, 6, 7, 9, 10 }
+-	},
+-
+-	/* most 3.x versions since 3.40 */
+-	{ INITVALS_MAP_V3_DEFAULT, 10,
+-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
+-	},
+-
+-	/* Apple-x86 and Linux-BCM6345/6348 drivers are reverse ordered */ 
+-	{ INITVALS_MAP_V3_REVERSE_ORDER, 10,
+-	  { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }
+-	},
+-
+-	/* version 3.130 */
+-	{ INITVALS_MAP_V3_UP_TO_REV11, 12,
+-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 18 }
+-	},
+-
+-	/* Linux-BCM96348 driver 3.131 is reverse ordered */ 
+-	{ INITVALS_MAP_V3_UP_TO_REV11_REVERSE_ORDER, 12,
+-	  { 18, 17, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }
+-	},
+-
+-	/* 4.x versions up to 4.40 */
+-	{ INITVALS_MAP_V4_UP_TO_REV11, 18,
+-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
+-	},
+-
+-	/* version 4.80 and newer */
+-	{ INITVALS_MAP_V4_UP_TO_REV13, 20,
+-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+-	    19, 20 }
+-	},
+-
+-	/* version 4.80.46 */
+-	{ INITVALS_MAP_V4_80_46, 25,
+-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+-	    19, 20, 21, 22, 23, 24, 25 }
+-	},
+-
+-	/* Apple driver version 4.80.46 */
+-	{ INITVALS_MAP_V4_80_46_REVERSE_ORDER, 25,
+-	  { 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
+-	    9, 8, 7, 6, 5, 4, 3, 2, 1 }
+-	},
+-
+-        /* version 4.102. , Windows Vista 64bit */
+-        { INITVALS_MAP_V4_102, 25,
+-          { 1, 2, 4, 3, 5, 0, 6, 7, 0, 8, 0, 9, 10, 0, 0, 0, 17, 18,
+-            19, 20, 21, 22, 23, 24, 25 }
+-        },
+-
+-	{ 0 },
++struct file {
++	const char *name;
++	const char *ucode_version;
++	const char *md5;
++	const struct extract *extract;
++	const uint32_t flags;
+ };
+ 
+ #endif /* _FWCUTTER_H_ */
+
+Modified: trunk/fwcutter/fwcutter_list.h
+===================================================================
+--- trunk/fwcutter/fwcutter_list.h	2007-08-08 13:59:04 UTC (rev 1227)
++++ trunk/fwcutter/fwcutter_list.h	2007-08-15 17:26:29 UTC (rev 1228)
+@@ -1,1986 +1,155 @@
++
++/* file member lists */
++struct extract _e08665c5c5b66beb9c3b2dd54aa80cb3[] =
++{
++	{ .name = &quot;d11ucode2&quot;, .offset = 0x59ca0, .length = 0x3fe0, .type = EXT_UCODE_1, },
++	{ .name = &quot;d11ucode4&quot;, .offset = 0x5dc84, .length = 0x4e78, .type = EXT_UCODE_1, },
++	{ .name = &quot;d11ucode5&quot;, .offset = 0x62b00, .length = 0x5700, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode11&quot;, .offset = 0x68204, .length = 0x54a8, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11pcm4&quot;, .offset = 0x6d6b0, .length = 0x520, .type = EXT_PCM, },
++	{ .name = &quot;d11pcm5&quot;, .offset = 0x6dbd4, .length = 0x520, .type = EXT_PCM, },
++	{ .name = &quot;d11a0g0bsinitvals2&quot;, .offset = 0x54ad0 + 0x30d8, .length = 0x18 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals5&quot;, .offset = 0x54ad0 + 0x3ae0, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals5&quot;, .offset = 0x54ad0 + 0x3be0, .length = 0x9f0 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals5&quot;, .offset = 0x54ad0 + 0x50c0, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals2&quot;, .offset = 0x54ad0 + 0x2320, .length = 0xdb8 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals5&quot;, .offset = 0x54ad0 + 0x45d0, .length = 0x9f0 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals2&quot;, .offset = 0x54ad0 + 0x2308, .length = 0x18 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals5&quot;, .offset = 0x54ad0 + 0x30f0, .length = 0x9f0 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals2&quot;, .offset = 0x54ad0 + 0x1550, .length = 0xdb8 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0bsinitvals5&quot;, .offset = 0x54ad0 + 0x4fc0, .length = 0x100 - 8, .type = EXT_IV, },
++	EXTRACT_LIST_END
++};
++
++struct extract _9207bc565c2fc9fa1591f6c7911d3fc0[] =
++{
++	{ .name = &quot;d11ucode4&quot;,  .offset = 0x66220 +  0x7ad8, .length = 0x4e68, .type = EXT_UCODE_1, },
++	{ .name = &quot;d11ucode5&quot;,  .offset = 0x66220 +  0xc944, .length = 0x5640, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode11&quot;, .offset = 0x66220 + 0x11f90, .length = 0x67e0, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode13&quot;, .offset = 0x66220 + 0x18774, .length = 0x5f60, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11pcm4&quot;, .offset = 0x66220 + 0x1e6d8, .length = 0x520, .type = EXT_PCM, },
++	{ .name = &quot;d11pcm5&quot;, .offset = 0x66220 + 0x1ebfc, .length = 0x520, .type = EXT_PCM, },
++	{ .name = &quot;d11b0g0initvals4&quot;,	.offset = 0x66220 + 0x1710, .length = 0xe90 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals4&quot;,	.offset = 0x66220 + 0x25a0, .length = 0x18 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals4&quot;,	.offset = 0x66220 + 0x25b8, .length = 0xe90 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0bsinitvals4&quot;,	.offset = 0x66220 + 0x3448, .length = 0x18 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals5&quot;,	.offset = 0x66220 + 0x3460, .length = 0xa28 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals5&quot;,	.offset = 0x66220 + 0x3e88, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals5&quot;,	.offset = 0x66220 + 0x3f88, .length = 0xa28 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals5&quot;,	.offset = 0x66220 + 0x49b0, .length = 0xa28 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0bsinitvals5&quot;,	.offset = 0x66220 + 0x53d8, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals5&quot;,	.offset = 0x66220 + 0x54d8, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0initvals13&quot;,	.offset = 0x66220 + 0x5620, .length = 0xb38 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0bsinitvals13&quot;,	.offset = 0x66220 + 0x6158, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals13&quot;,	.offset = 0x66220 + 0x6258, .length = 0xb40 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals13&quot;,.offset = 0x66220 + 0x6d98, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals13&quot;,	.offset = 0x66220 + 0x6e98, .length = 0xb40 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals13&quot;,.offset = 0x66220 + 0x79d8, .length = 0x100 - 8, .type = EXT_IV, },
++	EXTRACT_LIST_END
++};
++
++struct extract _722e2e0d8cc04b8f118bb5afe6829ff9[] =
++{
++	{ .name = &quot;d11ucode4&quot;,  .offset = 0x76a10 +  0x8960, .length = 0x4e68, .type = EXT_UCODE_1, },
++	{ .name = &quot;d11ucode5&quot;,  .offset = 0x76a10 +  0xd7cc, .length = 0x5640, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode11&quot;, .offset = 0x76a10 + 0x12e18, .length = 0x67e0, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode13&quot;, .offset = 0x76a10 + 0x195fc, .length = 0x5f60, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11pcm4&quot;, .offset = 0x76a10 + 0x1f560, .length = 0x520, .type = EXT_PCM, },
++	{ .name = &quot;d11pcm5&quot;, .offset = 0x76a10 + 0x1fa84, .length = 0x520, .type = EXT_PCM, },
++	{ .name = &quot;d11b0g0initvals4&quot;,	.offset = 0x76a10 + 0x1840, .length = 0xe90 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals4&quot;,	.offset = 0x76a10 + 0x26d0, .length = 0x18 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals4&quot;,	.offset = 0x76a10 + 0x26e8, .length = 0xe90 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0bsinitvals4&quot;,	.offset = 0x76a10 + 0x3578, .length = 0x18 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals5&quot;,	.offset = 0x76a10 + 0x3590, .length = 0xa28 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals5&quot;,	.offset = 0x76a10 + 0x3fb8, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals5&quot;,	.offset = 0x76a10 + 0x40b8, .length = 0xa28 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals5&quot;,	.offset = 0x76a10 + 0x4ae0, .length = 0xa28 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0bsinitvals5&quot;,	.offset = 0x76a10 + 0x5508, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals5&quot;,	.offset = 0x76a10 + 0x5608, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0initvals13&quot;,	.offset = 0x76a10 + 0x64a8, .length = 0xb38 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0bsinitvals13&quot;,	.offset = 0x76a10 + 0x6fe0, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals13&quot;,	.offset = 0x76a10 + 0x70e0, .length = 0xb40 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals13&quot;,.offset = 0x76a10 + 0x7c20, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals13&quot;,	.offset = 0x76a10 + 0x7d20, .length = 0xb40 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals13&quot;,.offset = 0x76a10 + 0x8860, .length = 0x100 - 8, .type = EXT_IV, },
++	EXTRACT_LIST_END
++};
++
++struct extract _1e4763b4cb8cfbaae43e5c6d3d6b2ae7[] =
++{
++	{ .name = &quot;d11ucode5&quot;,  .offset = 0x71c80 +  0xacd0, .length = 0x5768, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode9&quot;,  .offset = 0x71c80 + 0x1043c, .length = 0x6240, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode11&quot;, .offset = 0x71c80 + 0x16680, .length = 0x74a0, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode13&quot;, .offset = 0x71c80 + 0x1db24, .length = 0x7de0, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode14&quot;, .offset = 0x71c80 + 0x25908, .length = 0x7a90, .type = EXT_UCODE_2, },
++	{ .name = &quot;d11ucode15&quot;, .offset = 0x71c80 + 0x2d39c, .length = 0x7710, .type = EXT_UCODE_3, },
++	{ .name = &quot;d11pcm5&quot;, .offset = 0x71c80 + 0x34ab0, .length = 0x520, .type = EXT_PCM, },
++	{ .name = &quot;d11b0g0initvals5&quot;,	.offset = 0x71c80 + 0x14d0, .length = 0xa10 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals5&quot;,	.offset = 0x71c80 + 0x1ee0, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals5&quot;,	.offset = 0x71c80 + 0x1fe0, .length = 0xa10 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals5&quot;,	.offset = 0x71c80 + 0x29f0, .length = 0xa10 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0bsinitvals5&quot;,	.offset = 0x71c80 + 0x3400, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals5&quot;,	.offset = 0x71c80 + 0x3500, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals9&quot;,	.offset = 0x71c80 + 0x3600, .length = 0xae8 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals9&quot;,	.offset = 0x71c80 + 0x40e8, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0initvals9&quot;,	.offset = 0x71c80 + 0x41e8, .length = 0xae8 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals9&quot;,	.offset = 0x71c80 + 0x4cd0, .length = 0xae8 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g0bsinitvals9&quot;,	.offset = 0x71c80 + 0x57b8, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals9&quot;,	.offset = 0x71c80 + 0x58b8, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11n0initvals11&quot;,	.offset = 0x71c80 + 0x59b8, .length = 0xb78 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11n0bsinitvals11&quot;,	.offset = 0x71c80 + 0x6530, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11n0absinitvals11&quot;,	.offset = 0x71c80 + 0x6630, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0initvals13&quot;,	.offset = 0x71c80 + 0x6730, .length = 0x1360 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0bsinitvals13&quot;,	.offset = 0x71c80 + 0x7a90, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0initvals13&quot;,	.offset = 0x71c80 + 0x7b90, .length = 0xb60 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11b0g0bsinitvals13&quot;,.offset = 0x71c80 + 0x86f0, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1initvals13&quot;,	.offset = 0x71c80 + 0x87f0, .length = 0xb60 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11a0g1bsinitvals13&quot;,.offset = 0x71c80 + 0x9350, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0initvals14&quot;,	.offset = 0x71c80 + 0x9450, .length = 0xb48 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0bsinitvals14&quot;,	.offset = 0x71c80 + 0x9f98, .length = 0x100 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0initvals15&quot;,	.offset = 0x71c80 + 0xa098, .length = 0xb38 - 8, .type = EXT_IV, },
++	{ .name = &quot;d11lp0bsinitvals15&quot;,	.offset = 0x71c80 + 0xabd0, .length = 0x100 - 8, .type = EXT_IV, },
++	EXTRACT_LIST_END
++};
++
++
++/*
++ * Links change, so let's not put them into the README.
++ * I still put them here so we know where the file was obtained.
++ */
+ static const struct file files[] = 
+ {
+ 	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.30.15.p3 (3.1.1b2)&quot;,
+-		.md5         = &quot;a8275cc50107a13b5be15d067b2245a0&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x42550,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x45630,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x493bc,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x4d860,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x52724,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x52ba0,  .pcm5_length = 0x478,
++		.name		= &quot;wl_apsta.o&quot;,
++		.ucode_version	= &quot;295.14&quot;,
++		.md5		= &quot;e08665c5c5b66beb9c3b2dd54aa80cb3&quot;,
++		.flags		= FW_FLAG_LE,
++		.extract	= _e08665c5c5b66beb9c3b2dd54aa80cb3,
+ 	},
+ 	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.30.15.p3 (3.1.2b3)&quot;,
+-		.md5         = &quot;55134c1298abaa85f190331f016d4d36&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x42c24,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x45d04,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x49a90,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x4df34,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x52df8,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x53274,  .pcm5_length = 0x478,
++		/* <A HREF="http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2">http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2</A> */
++		.name		= &quot;wl_apsta.o&quot;,
++		.ucode_version	= &quot;351.126&quot;,
++		.md5		= &quot;9207bc565c2fc9fa1591f6c7911d3fc0&quot;,
++		.flags		= FW_FLAG_LE | FW_FLAG_V4,
++		.extract	= _9207bc565c2fc9fa1591f6c7911d3fc0,
+ 	},
+ 	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.30.15.p3 (3.1.2b3)&quot;,
+-		.md5         = &quot;ac232f87f4ccfd1342a878fa85cb95e0&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x426f0,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x457d0,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x4955c,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x4da00,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x528c4,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x52d40,  .pcm5_length = 0x478,
++		/* <A HREF="http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2">http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2</A> */
++		.name		= &quot;wl_apsta_mimo.o&quot;,
++		.ucode_version	= &quot;351.126&quot;,
++		.md5		= &quot;722e2e0d8cc04b8f118bb5afe6829ff9&quot;,
++		.flags		= FW_FLAG_LE | FW_FLAG_V4,
++		.extract	= _722e2e0d8cc04b8f118bb5afe6829ff9,
+ 	},
+ 	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.30.15.p7 (3.2)&quot;,
+-		.md5         = &quot;e74e8d2df2e4eb97e28602f3b2dd4647&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x40efc,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x43fdc,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x47d68,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x4c20c,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x510d0,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x5154c,  .pcm5_length = 0x478,
++		/* <A HREF="ftp://ftp.linksys.com/opensourcecode/wrt150nv11/1.51.3/">ftp://ftp.linksys.com/opensourcecode/wrt150nv11/1.51.3/</A> */
++		.name		= &quot;wl_ap.o&quot;,
++		.ucode_version	= &quot;410.2160&quot;,
++		.md5		= &quot;1e4763b4cb8cfbaae43e5c6d3d6b2ae7&quot;,
++		.flags		= FW_FLAG_LE | FW_FLAG_V4,
++		.extract	= _1e4763b4cb8cfbaae43e5c6d3d6b2ae7,
+ 	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.30.15.p8 (3.3b1)&quot;,			/* 01/19/2004 */
+-		.md5         = &quot;87c74c55d2501d2e968f8c132e160b6e&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x41c8c,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x43fe4,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x47d70,  .uc4_length  = 0x44b2,
+-		.uc5_pos     = 0x4c214,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x510d8,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x51554,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.50.37.p4 (3.4.2b1)&quot;,
+-		.md5         = &quot;1739c357ade1d04c9be47e8604afb1c2&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x4f2b8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x52da0,  .uc2_length  = 0x3d30,
+-		.uc4_pos     = 0x56ad4,  .uc4_length  = 0x45c8,
+-		.uc5_pos     = 0x5b0a0,  .uc5_length  = 0x5500,
+-		.pcm4_pos    = 0x605a4,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x60a20,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.50.37.p4 (3.4.3f1)&quot;,			/* 09/29/2004 */
+-		.md5         = &quot;c672b8c218c5dc4a55060bdfa9f58a69&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x4f378,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x52e60,  .uc2_length  = 0x3d30,
+-		.uc4_pos     = 0x56b94,  .uc4_length  = 0x45c8,
+-		.uc5_pos     = 0x5b160,  .uc5_length  = 0x5500,
+-		.pcm4_pos    = 0x60664,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x60ae0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.50.37.p4 (3.4.4f5)&quot;,
+-		.md5         = &quot;2c388e3e8ea9310a58cf76a3757e8ccc&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x4f5f0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x530d8,  .uc2_length  = 0x3d30,
+-		.uc4_pos     = 0x56e0c,  .uc4_length  = 0x45c8,
+-		.uc5_pos     = 0x5b3d8,  .uc5_length  = 0x5500,
+-		.pcm4_pos    = 0x608dc,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x60d58,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.50.37.p4 (3.4.4f5)&quot;,
+-		.md5         = &quot;3860545266b554d2955664db55452f5a&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x4f5f0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x530d8,  .uc2_length  = 0x3d30,
+-		.uc4_pos     = 0x56e0c,  .uc4_length  = 0x45c8,
+-		.uc5_pos     = 0x5b3d8,  .uc5_length  = 0x5500,
+-		.pcm4_pos    = 0x608dc,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x60d58,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.50.37.p6 (3.5f1)&quot;,
+-		.md5         = &quot;a62e35ee9956b286c46b145d35bd6e0c&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x4f9b8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x534a0,  .uc2_length  = 0x3d30,
+-		.uc4_pos     = 0x571d4,  .uc4_length  = 0x45c8,
+-		.uc5_pos     = 0x5b7a0,  .uc5_length  = 0x5500,
+-		.pcm4_pos    = 0x60ca4,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x61120,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.50.37.p6 (3.5f1)&quot;,
+-		.md5         = &quot;b6f3d2437c40277c197f0afcf12208e9&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x4f9b8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x534a0,  .uc2_length  = 0x3d30,
+-		.uc4_pos     = 0x571d4,  .uc4_length  = 0x45c8,
+-		.uc5_pos     = 0x5b7a0,  .uc5_length  = 0x5500,
+-		.pcm4_pos    = 0x60ca4,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x61120,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p11 (400.17)&quot;,	       /* 09/13/2005 (??) */
+-		.md5         = &quot;ca0f34df2f0bfb8b5cfd83b5848d2bf5&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN | 
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x4ff2c,                                /* A-PHY init vals empty */
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x5181c,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x55764,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5a554,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x5fd34,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x60254,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p11 (400.17)&quot;,
+-		.md5         = &quot;dc3a69aac95c68fe8edc760e39bbb2c9&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN | 
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x50efc,                                /* A-PHY init vals empty */
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x527ec,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x56734,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5b524,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x60d04,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x61224,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p13 (401.2)&quot;,                /* 07/10/2005 */
+-		.md5         = &quot;6ecf38e5ab6997c7ec483c0d637f5c68&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x50fcc,                                /* A-PHY init vals empty */
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x528bc,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x56804,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5b5f4,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x60dd4,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x612f4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p13 (402.6)&quot;,
+-		.md5         = &quot;2ba0c4de95344b00f2c7efad917490f5&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x510f4,                                /* A-PHY init vals empty */
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x529e4,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x5692c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5b71c,  .uc5_length  = 0x57f0,
+-		.pcm4_pos    = 0x60f0c,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6142c,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p16 (404.2)&quot;,
+-		.md5         = &quot;1b44556cc33b4625f3115ce2942761c6&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x5dd60,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x59e18,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x55028,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x4f838,  .uc5_length  = 0x57f0,
+-		.pcm4_pos    = 0x4f318,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4edf8,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p16 (404.2)&quot;,
+-		.md5         = &quot;6abbe6468954c510b36546f3cdb89efc&quot;,     /* x86 driver */
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x5dcd8,                                /* A-PHY init vals empty */
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x59d90,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x54fa0,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x4f7b0,  .uc5_length  = 0x57f0,
+-		.pcm4_pos    = 0x4f290,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4ed70,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p16 (404.2)&quot;,
+-		.md5         = &quot;7200d1aef5f413ebc811046d068b40dc&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x511ec,                                /* A-PHY init vals empty */
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x52adc,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x56a24,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5b814,  .uc5_length  = 0x57f0,
+-		.pcm4_pos    = 0x61004,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x61524,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p16 (404.2)&quot;,
+-		.md5         = &quot;86cc708e8df3b035a1dbea41ac4eb7d2&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x5021c,                                /* A-PHY init vals empty */
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x51b0c,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x55a54,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5a844,  .uc5_length  = 0x57f0,
+-		.pcm4_pos    = 0x60034,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x60554,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p18 (405.1)&quot;,
+-		.md5         = &quot;6ad97ec30caee8c5580abdc93c36a2da&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x53e24,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x55714,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x5965c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5e44c,  .uc5_length  = 0x57f0,
+-		.pcm4_pos    = 0x63c3c,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6415c,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort2&quot;,
+-		.version     = &quot;3.90.34.0.p18 (405.1)&quot;,
+-		.md5         = &quot;85c71d658b650fd2ef546d1d81b113a0&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x51204,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x52AF4,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x56a3c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5b82c,  .uc5_length  = 0x57f0,
+-		.pcm4_pos    = 0x6101c,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6153c,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPort3&quot;,
+-		.version     = &quot;3.90.34.0.p3 (3.6f2)&quot;,
+-		.md5         = &quot;5aa65bf75ae1bee0f81092a076d1ad1d&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               MISSING_INITVAL_80211_A,
+-		.iv_pos      = 0x49910,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x4b200,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x4f148,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x53f38,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x59718,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x59c38,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPortBrcm4311&quot;,
+-		.version     = &quot;3.120.28.3 (101.3)&quot;,
+-		.md5         = &quot;71f2dbea1dab2ec630b84f4076d9a14e&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x117b60,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x113be0,  .uc2_length  = 0x3f68,
+-		.uc4_pos     = 0x10edc0,  .uc4_length  = 0x4e10,
+-		.uc5_pos     = 0x1095c0,  .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x1090a0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x108b80,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPortBrcm4311&quot;,
+-		.version     = &quot;3.120.28.3 (103.2)&quot;,
+-		.md5         = &quot;e97c1a92bc961f3334992fe8eea2b185&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x1184c0,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x114540,  .uc2_length  = 0x3f68,
+-		.uc4_pos     = 0x10f720,  .uc4_length  = 0x4e10,
+-		.uc5_pos     = 0x109f20,  .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x109a00,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x1094e0,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPortBrcm4311&quot;,
+-		.version     = &quot;3.120.28.3.p19 (104.1)&quot;,
+-		.md5         = &quot;96be03e7d08d14db3a323078aa318a53&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x118c60,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x114ce0,  .uc2_length  = 0x3f68,
+-		.uc4_pos     = 0x10fec0,  .uc4_length  = 0x4e10,
+-		.uc5_pos     = 0x10a6c0,  .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x10a1a0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x109c80,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPortBrcm4311&quot;,
+-		.version     = &quot;4.80.46.0&quot;,
+-		.md5         = &quot;e99ad02fdd7699fa52f0b9153c8411c8&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x1592f4,
+-		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
+-		.uc4_pos     = 0x15448c,  .uc4_length  = 0x4e68,
+-		.uc5_pos     = 0x14ee4c,  .uc5_length  = 0x5640,
+-		.uc11_pos    = 0x148668,  .uc11_length = 0x67e0,
+-		.uc13_pos    = 0x142708,  .uc13_length = 0x5f60,
+-		.pcm4_pos    = 0x1421e8,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x141cc8,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPortBrcm4311&quot;,
+-		.version     = &quot;4.80.76.0&quot;,
+-		.md5         = &quot;f5963816541d6f5fee2bd1e078919e93&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x162a3c,
+-		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
+-		.uc4_pos     = 0x15dbcc,  .uc4_length  = 0x4e70,
+-		.uc5_pos     = 0x158584,  .uc5_length  = 0x5648,
+-		.uc11_pos    = 0x151cf0,  .uc11_length = 0x6890,
+-		.uc13_pos    = 0x14bd68,  .uc13_length = 0x5f88,
+-		.pcm4_pos    = 0x14b848,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x14b328,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;AppleAirPortBrcm4311&quot;,
+-		.version     = &quot;4.80.79.1&quot;,
+-		.md5         = &quot;dc2b37598f0651b6cf5eaaf9022d9efa&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x87cc0,
+-		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
+-		.uc4_pos     = 0x82e40,   .uc4_length  = 0x4e70,
+-		.uc5_pos     = 0x7d7e0,   .uc5_length  = 0x5648,
+-		.uc11_pos    = 0x76f40,   .uc11_length = 0x6888,
+-		.uc13_pos    = 0x70fc0,   .uc13_length = 0x5f80,
+-		.pcm4_pos    = 0x70aa0,   .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x70580,   .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.8.27.0&quot;,
+-		.md5         = &quot;208a33d5a52040b5401d48b8e974f901&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_8,
+-		.iv_pos      = 0x1c128,
+-		.iv_map      = INITVALS_MAP_V3_8_X,
+-		.uc2_pos     = 0x10a54,  .uc2_length  = 0x3cf0,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,                           /* renamed to WMP11V27.sys */
+-		.version     = &quot;3.8.28.0&quot;,
+-		.md5         = &quot;f7c6cc420c21eb1a73f6a73bfec96f2c&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_8,
+-		.iv_pos      = 0x1c1a8,
+-		.iv_map      = INITVALS_MAP_V3_8_X,
+-		.uc2_pos     = 0x10ad4,  .uc2_length  = 0x3cf0,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.8.37.0&quot;,                             /* 09/23/2002 */ 
+-		.md5         = &quot;e39e934eccd3b15bbb5f8d8f52f172b2&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_8,
+-		.iv_pos      = 0x10528,
+-		.iv_map      = INITVALS_MAP_V3_8_X,
+-		.uc2_pos     = 0x11454,  .uc2_length  = 0x3cf0,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.10.8.0&quot;,                             /* 10/04/2002 */ 
+-		.md5         = &quot;288923b401e87ef76b7ae2652601ee47&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_8,
+-		.iv_pos      = 0x13448,
+-		.iv_map      = INITVALS_MAP_V3_10_8,
+-		.uc2_pos     = 0x193b4,  .uc2_length  = 0x3dd8,
+-		.pcm4_pos    = 0x24d6c,  .pcm4_length = 0x428,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.10.36.0&quot;,                            /* 12/29/2002 */ 
+-		.md5         = &quot;94cf83440955c49387ab7d9d4a8ee138&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_10,
+-		.iv_pos      = 0x1a760,
+-		.iv_map      = INITVALS_MAP_V3_10_3X,
+-		.uc2_pos     = 0x1cf84,  .uc2_length  = 0x3ed0,
+-		.pcm4_pos    = 0x24d44,  .pcm4_length = 0x428,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.10.39.0&quot;,
+-		.md5         = &quot;5204362ec9ae6d7a5e2c9ec97a869f3f&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_10,
+-		.iv_pos      = 0x1a860,
+-		.iv_map      = INITVALS_MAP_V3_10_3X,
+-		.uc2_pos     = 0x1d084,  .uc2_length  = 0x3f30,
+-		.pcm4_pos    = 0x24f04,  .pcm4_length = 0x428,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,                           /* was renamed to n54gnds.sys */
+-		.version     = &quot;3.10.39.7&quot;,
+-		.md5         = &quot;def910106deec0ad67712d124fc2047d&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_10,
+-		.iv_pos      = 0x1b060,
+-		.iv_map      = INITVALS_MAP_V3_10_3X,
+-		.uc2_pos     = 0x1d884,  .uc2_length  = 0x3f30,
+-		.pcm4_pos    = 0x25704,  .pcm4_length = 0x428,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.10.39.8&quot;,
+-		.md5         = &quot;bdbd3b9bf07ead2e8e00cc6dc267fb4a&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_10,
+-		.iv_pos      = 0x1afe0,
+-		.iv_map      = INITVALS_MAP_V3_10_3X,
+-		.uc2_pos     = 0x1d804,  .uc2_length  = 0x3f30,
+-		.pcm4_pos    = 0x25684,  .pcm4_length = 0x428,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.10.52.0&quot;,
+-		.md5         = &quot;4a8e982a023e48a6941d4581a88777a4&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_10,
+-		.iv_pos      = 0x1c968,
+-		.iv_map      = INITVALS_MAP_V3_10_3X,
+-		.uc2_pos     = 0x1f17c,  .uc2_length  = 0x3f30,
+-		.pcm4_pos    = 0x26ffc,  .pcm4_length = 0x428,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.10.53.0&quot;,
+-		.md5         = &quot;50e009df2dbecf7a53fcefee6b137358&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_10,
+-		.iv_pos      = 0x1c9e8,
+-		.iv_map      = INITVALS_MAP_V3_10_3X,
+-		.uc2_pos     = 0x1f1fc,  .uc2_length  = 0x3f30,
+-		.pcm4_pos    = 0x2707c,  .pcm4_length = 0x428,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.10.53.6&quot;,                            /* 04/28/2003 */ 
+-		.md5         = &quot;b43c593fd7c2a47cdc40580fe341f674&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               OLD_VERSION_STYLE_3_10,
+-		.iv_pos      = 0x1d2f0,
+-		.iv_map      = INITVALS_MAP_V3_10_53_6,
+-		.uc2_pos     = 0x1e054,  .uc2_length  = 0x3f38,
+-		.uc4_pos     = 0x288bc,  .uc4_length  = 0x4238,
+-		.pcm4_pos    = 0x30d4c,  .pcm4_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,                           /* was renamed to n54gnds.sys */
+-		.version     = &quot;3.20.21.0&quot;,
+-		.md5         = &quot;595a1b9c589b5d969b08c49c15649609&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x2a158,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x2d1a8,  .uc2_length  = 0x3da8,
+-		.uc4_pos     = 0x30f58,  .uc4_length  = 0x4470,
+-		.uc5_pos     = 0x353d0,  .uc5_length  = 0x4ba0,
+-		.pcm4_pos    = 0x39f78,  .pcm4_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.20.23.0&quot;,                            /* 06/13/2003 */ 
+-		.md5         = &quot;1b1cf5e962c15abca83d1ef2b3906e2f&quot;,     /* pcm5 not available, driver is too old */
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x2a1d8,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3da8,
+-		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4470,
+-		.uc5_pos     = 0x35450,  .uc5_length  = 0x4ba0,
+-		.pcm4_pos    = 0x39ff8,  .pcm4_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,                           /* was renamed to mn720-50.sys */
+-		.version     = &quot;3.20.26.0&quot;,
+-		.md5         = &quot;a8be5b44170d7d1fbdb4dac89d2dacda&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x2a1d8,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3da8,
+-		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4470,
+-		.uc5_pos     = 0x35450,  .uc5_length  = 0x4ba0,
+-		.pcm4_pos    = 0x39ff8,  .pcm4_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.30.15.0&quot;,                            /* 07/17/2003 */ 
+-		.md5         = &quot;ebf36d658d0da5b1ea667fa403919c26&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x2c658,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x2f738,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x334c8,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x37970,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x3c838,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x3ccb8,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.30.15.1&quot;,
+-		.md5         = &quot;b3b3936d52a38b0257ffc7acf2d69a54&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x2c6d8,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x2f7b8,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x33548,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x379f0,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x3c8b8,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x3cd38,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.40.20.0&quot;,                            /* 09/24/2003 */ 
+-		.md5         = &quot;0c3fc803184f6f85e665dd012611225b&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x302f0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x33d88,  .uc2_length  = 0x3db8,
+-		.uc4_pos     = 0x37b48,  .uc4_length  = 0x45d8,
+-		.uc5_pos     = 0x3c128,  .uc5_length  = 0x5050,
+-		.pcm4_pos    = 0x41180,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x41600,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.40.25.3&quot;,                            /* 10/28/2003 */ 
+-		.md5         = &quot;5e58a3148b98c9f356cde6049435cb21&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x30970,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x34408,  .uc2_length  = 0x3db0,
+-		.uc4_pos     = 0x381c0,  .uc4_length  = 0x45d0,
+-		.uc5_pos     = 0x3c798,  .uc5_length  = 0x5050,
+-		.pcm4_pos    = 0x417f0,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x41c70,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.40.65.0&quot;,
+-		.md5         = &quot;ba58cf7f9e8243f19c3eed2f2dcec770&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x36a18,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3a4b0,  .uc2_length  = 0x3ff0,
+-		.uc4_pos     = 0x3e4a8,  .uc4_length  = 0x47f0,
+-		.uc5_pos     = 0x42ca0,  .uc5_length  = 0x5260,
+-		.pcm4_pos    = 0x47f08,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x48388,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.40.69.0&quot;,                            /* 04/09/2004 */ 
+-		.md5         = &quot;6b670978465408373ae70ab19d70ba7e&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x36a18,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3a4b0,  .uc2_length  = 0x3ff0,
+-		.uc4_pos     = 0x3e4a8,  .uc4_length  = 0x47f0,
+-		.uc5_pos     = 0x42ca0,  .uc5_length  = 0x5260,
+-		.pcm4_pos    = 0x47f08,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x48388,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.40.73.0&quot;,                            /* 06/25/2004 */ 
+-		.md5         = &quot;52d67c5465c01913b03b7daca0cc4077&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x37398,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3ae30,  .uc2_length  = 0x3ff0,
+-		.uc4_pos     = 0x3ee28,  .uc4_length  = 0x47f0,
+-		.uc5_pos     = 0x43620,  .uc5_length  = 0x5260,
+-		.pcm4_pos    = 0x48888,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x48d08,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.40.100.0&quot;,                           /* 02/07/2004 */ 
+-		.md5         = &quot;431195b941dff794f23c2077fcbf8377&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x34d18,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x387b0,  .uc2_length  = 0x3ff0,
+-		.uc4_pos     = 0x3c7a8,  .uc4_length  = 0x47f0,
+-		.uc5_pos     = 0x40fa0,  .uc5_length  = 0x5260,
+-		.pcm4_pos    = 0x46208,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x46688,  .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.50.21.10&quot;,
+-		.md5         = &quot;7e5c80e858ce5f9f273017e8fecf12fe&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x33370,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x36e58,	 .uc2_length  = 0x3e00,
+-		.uc4_pos     = 0x3ac60,	 .uc4_length  = 0x4628,
+-		.uc5_pos     = 0x3f290,	 .uc5_length  = 0x5548,
+-		.pcm4_pos    = 0x447e0,	 .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x44c60,	 .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.50.21.11&quot;,                           /* 02/19/2004 */
+-		.md5         = &quot;ae96075a3aed5c40f1ead477ea94acd7&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x33370,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x36e58,	 .uc2_length  = 0x3e00,
+-		.uc4_pos     = 0x3ac60,	 .uc4_length  = 0x4628,
+-		.uc5_pos     = 0x3f290,	 .uc5_length  = 0x5548,
+-		.pcm4_pos    = 0x447e0,	 .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x44c60,	 .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.60.7.0&quot;,                             /* 03/22/2004 */
+-		.md5         = &quot;c5616736df4e83930780dca5795387ca&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3b988,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3f580,	 .uc2_length  = 0x3e08,
+-		.uc4_pos     = 0x43390,	 .uc4_length  = 0x4e58,
+-		.uc5_pos     = 0x481f0,	 .uc5_length  = 0x5608,
+-		.pcm4_pos    = 0x4d800,	 .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4dc80,	 .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.60.7.5&quot;,                             /* 06/07/2004 */
+-		.md5         = &quot;d2ae116c741c215ef3ef68603db9917f&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3b988,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3f580,	 .uc2_length  = 0x3e08,
+-		.uc4_pos     = 0x43390,	 .uc4_length  = 0x4e58,
+-		.uc5_pos     = 0x481f0,	 .uc5_length  = 0x5608,
+-		.pcm4_pos    = 0x4d800,	 .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4dc80,	 .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.70.12.0&quot;,                            /* 06/02/2004 */
+-		.md5         = &quot;d409b089370486521d5408baed9bffde&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x39480,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3d0c8,	 .uc2_length  = 0x3e80,
+-		.uc4_pos     = 0x40f50,	 .uc4_length  = 0x4ed0,
+-		.uc5_pos     = 0x45e28,	 .uc5_length  = 0x5680,
+-		.pcm4_pos    = 0x4b4b0,	 .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4b930,	 .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.70.17.0&quot;,                            /* 06/25/2004 */
+-		.md5         = &quot;d87b4e14e890091d8e64fb5c570cf192&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x39600,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3d248,	 .uc2_length  = 0x3e80,
+-		.uc4_pos     = 0x410d0,	 .uc4_length  = 0x4ed0,
+-		.uc5_pos     = 0x45fa8,	 .uc5_length  = 0x5680,
+-		.pcm4_pos    = 0x4b630,	 .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4bab0,	 .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.70.22.0&quot;,                            /* 10/20/2004 */
+-		.md5         = &quot;185a6dc6d655dc31c0b228cc94fb99ac&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x39a88,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3d6d0,	 .uc2_length  = 0x3e80,
+-		.uc4_pos     = 0x41558,	 .uc4_length  = 0x4ed0,
+-		.uc5_pos     = 0x46430,	 .uc5_length  = 0x5680,
+-		.pcm4_pos    = 0x4bab8,	 .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4bf38,	 .pcm5_length = 0x478,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.90.16.0&quot;,                            /* 12/06/2004 */
+-		.md5         = &quot;980a7b1e46a368edbeff944ec22f30ad&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3b4c8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3f138,	 .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x43088,	 .uc4_length  = 0x4de8,
+-		.uc5_pos     = 0x47e78,	 .uc5_length  = 0x57d8,
+-		.pcm4_pos    = 0x4d658,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4db80,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.90.41.1&quot;,                            /* 07/04/2005 */
+-		.md5         = &quot;0a87541dd24c6f046a4bf8f671f74de2&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3bec8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3fb38,	 .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x43a88,	 .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x48880,	 .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x4e068,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4e590,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.94.41.1&quot;,
+-		.md5         = &quot;b553a59b798f398975083e240f9d0dcf&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3bec8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3fb38,	 .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x43a88,	 .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x48880,	 .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x4e068,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4e590,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.94.41.2&quot;,
+-		.md5         = &quot;904f2564fbdf2313bec37d5f7116ed05&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3bec8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3fb38,	 .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x43a88,	 .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x48880,	 .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x4e068,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4e590,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.100.35.0&quot;,                           /* 11/27/2004 */
+-		.md5         = &quot;c3ab2d6954c7b5103770832a3a6a591b&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3de80,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x41af0,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x45a50,	 .uc4_length  = 0x4df8,
+-		.uc5_pos     = 0x4a850,	 .uc5_length  = 0x57f8,
+-		.pcm4_pos    = 0x50050,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x50578,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.100.35.1&quot;,                           /* 02/10/2005 */
+-		.md5         = &quot;da7ca369a1a3593ceac85dec2d267a08&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3df00,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x41b70,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x45ad0,	 .uc4_length  = 0x4df8,
+-		.uc5_pos     = 0x4a8d0,	 .uc5_length  = 0x57f8,
+-		.pcm4_pos    = 0x500d0,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x505f8,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.100.46.0&quot;,                           /* 12/22/2004 */
+-		.md5         = &quot;38ca1443660d0f5f06887c6a2e692aeb&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3de80,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x41af0,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x45a50,	 .uc4_length  = 0x4df8,
+-		.uc5_pos     = 0x4a850,	 .uc5_length  = 0x57f8,
+-		.pcm4_pos    = 0x50050,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x50578,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.100.64.0&quot;,                           /* 02/11/2005 */
+-		.md5         = &quot;e7debb46b9ef1f28932e533be4a3d1a9&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3e980,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x425f0,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x46550,	 .uc4_length  = 0x4e00,
+-		.uc5_pos     = 0x4b358,	 .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x50b60,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51088,	 .pcm5_length = 0x520,
+-	},
+-	{ 
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.100.64.50&quot;,                          /* 04/05/2005 */
+-		.md5         = &quot;4b3e367b829b9b2c0c088909a617e04e&quot;, 
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3e900,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x42570,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x464d0,	 .uc4_length  = 0x4e00,
+-		.uc5_pos     = 0x4b2d8,	 .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x50ae0,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51008,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.100.65.1&quot;,                           /* 04/21/2005 */
+-		.md5         = &quot;d5f1ab1aab8b81bca6f19da9554a267a&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3e980,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x425f0,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x46550,	 .uc4_length  = 0x4e00,
+-		.uc5_pos     = 0x4b358,	 .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x50b60,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51088,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.104.64.50&quot;,
+-		.md5         = &quot;12554a8f91c5d565b96b6ebcfeb6a91a&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3e980,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x425f0,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x46550,	 .uc4_length  = 0x4e00,
+-		.uc5_pos     = 0x4b358,	 .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x50b60,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51088,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.104.64.52&quot;,
+-		.md5         = &quot;3ccb53e4f0f5e9f4ae270cb2924cb941&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3e980,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x425f0,	 .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x46550,	 .uc4_length  = 0x4e00,
+-		.uc5_pos     = 0x4b358,	 .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x50b60,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51088,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.120.27.0&quot;,                           /* 05/19/2005 */
+-		.md5         = &quot;8d49f11238815a320880fee9f98b2c92&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3f700,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x43370,	 .uc2_length  = 0x3f68,
+-		.uc4_pos     = 0x472e0,	 .uc4_length  = 0x4e10,
+-		.uc5_pos     = 0x4c0f8,	 .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x51900,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51e28,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;3.140.16.0&quot;,                           /* 07/21/2005 */
+-		.md5         = &quot;fa4a4a50b4b2647afedc676cc68c69cc&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3f700,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x43370,	 .uc2_length  = 0x3f68,
+-		.uc4_pos     = 0x472e0,	 .uc4_length  = 0x4e10,
+-		.uc5_pos     = 0x4c0f8,	 .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x51900,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51e28,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.10.23.2&quot;,
+-		.md5         = &quot;cc04de6690d2f15c7fe2095a476141ba&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x46aa0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
+-		.uc4_pos     = 0x4b498,	 .uc4_length  = 0x4e90,
+-		.uc5_pos     = 0x50330,	 .uc5_length  = 0x56f8,
+-		.uc11_pos    = 0x55a38,	 .uc11_length = 0x5bd0,
+-		.pcm4_pos    = 0x5b610,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5bb38,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.10.40.0&quot;,                           /* 11/02/2005 */
+-		.md5         = &quot;30d20fc98bcfd52e1da778cf19b223d4&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x47ba8,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
+-		.uc4_pos     = 0x4c5b0,	 .uc4_length  = 0x4ee8,
+-		.uc5_pos     = 0x514a0,	 .uc5_length  = 0x5750,
+-		.uc11_pos    = 0x56c00,	 .uc11_length = 0x5a90,
+-		.pcm4_pos    = 0x5c698,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5cbc0,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.10.40.1&quot;,                           /* 12/17/2005 */
+-		.md5         = &quot;69f940672be0ecee5bd1e905706ba8ce&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x47ba8,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
+-		.uc4_pos     = 0x4c5b0,	 .uc4_length  = 0x4ee8,
+-		.uc5_pos     = 0x514a0,	 .uc5_length  = 0x5750,
+-		.uc11_pos    = 0x56c00,	 .uc11_length = 0x5a90,
+-		.pcm4_pos    = 0x5c698,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5cbc0,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.10.47.2&quot;,
+-		.md5         = &quot;2b87cd8a92bc5003067534aba4349db0&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x47e28,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
+-		.uc4_pos     = 0x4c830,	 .uc4_length  = 0x4ee8,
+-		.uc5_pos     = 0x51720,	 .uc5_length  = 0x5750,
+-		.uc11_pos    = 0x56e80,	 .uc11_length = 0x5a90,
+-		.pcm4_pos    = 0x5c918,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5ce40,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.40.19.0&quot;,
+-		.md5         = &quot;114234fafec7060392195170e1c4d45e&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x48ab8,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
+-		.uc4_pos     = 0x4d4c0,	 .uc4_length  = 0x4f58,
+-		.uc5_pos     = 0x52420,	 .uc5_length  = 0x57c0,
+-		.uc11_pos    = 0x57bf0,	 .uc11_length = 0x5b00,
+-		.pcm4_pos    = 0x5d6f8,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5dc20,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.5.0&quot;,
+-		.md5         = &quot;4e89609eac698835250acd02851cc594&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x55780,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x5aef8,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x5fd28,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x65330,  .uc11_length = 0x6020,
+-		.uc13_pos    = 0x6b358,  .uc13_length = 0x5d20,
+-		.pcm4_pos    = 0x71080,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x715a8,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.9.0&quot;,
+-		.md5         = &quot;85fb2a9069a3cdef3a591606844d0036&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x56400,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x5bb78,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x609a8,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x65fb0,  .uc11_length = 0x60f0,
+-		.uc13_pos    = 0x6c0a8,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x71dc8,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x722f0,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.9.2&quot;,
+-		.md5         = &quot;2ee34b694d1ce077678662d7884f6c79&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x56480,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x5bbf8,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x60a28,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x66030,  .uc11_length = 0x6130,
+-		.uc13_pos    = 0x6c168,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x71e88,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x723b0,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.17.0&quot;,
+-		.md5         = &quot;90ef35fb5ae531420577c8f40d8a16f5&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x57f80,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x5d6f8,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x62528,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x67b30,  .uc11_length = 0x6160,
+-		.uc13_pos    = 0x6dc98,  .uc13_length = 0x5d40,
+-		.pcm4_pos    = 0x739e0,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x73f08,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.28.2&quot;,
+-		.md5         = &quot;5538cd4cadc0ed0c0295192fd041860d&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x59200,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x5e9a0,  .uc4_length  = 0x4e48,
+-		.uc5_pos     = 0x637f0,  .uc5_length  = 0x5618,
+-		.uc11_pos    = 0x68e18,  .uc11_length = 0x6660,
+-		.uc13_pos    = 0x6f480,  .uc13_length = 0x5e58,
+-		.pcm4_pos    = 0x752e0,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x75808,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.28.7&quot;,
+-		.md5         = &quot;3003c21e5e1f04ba84fc8e705a65db2b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x59380,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x5eb20,  .uc4_length  = 0x4e48,
+-		.uc5_pos     = 0x63970,  .uc5_length  = 0x5618,
+-		.uc11_pos    = 0x68f98,  .uc11_length = 0x6660,
+-		.uc13_pos    = 0x6f600,  .uc13_length = 0x5e58,
+-		.pcm4_pos    = 0x75460,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x75988,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.46.0&quot;,
+-		.md5         = &quot;c50861ee37c900bfbc666d49439dc778&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x5bd00,
+-		.iv_map      = INITVALS_MAP_V4_80_46,
+-		.uc4_pos     = 0x62e20,  .uc4_length  = 0x4e68,
+-		.uc5_pos     = 0x67c90,  .uc5_length  = 0x5640,
+-		.uc11_pos    = 0x6d2e0,  .uc11_length = 0x67e0,
+-		.uc13_pos    = 0x73ac8,  .uc13_length = 0x5f60,
+-		.pcm4_pos    = 0x79a30,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x79f58,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.80.53.0&quot;,
+-		.md5         = &quot;e8814dbec973681ae2b2e502ed1a8f44&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x5c600,
+-		.iv_map      = INITVALS_MAP_V4_80_46,
+-		.uc4_pos     = 0x63720,  .uc4_length  = 0x4e68,
+-		.uc5_pos     = 0x68590,  .uc5_length  = 0x5640,
+-		.uc11_pos    = 0x6dbe0,  .uc11_length = 0x67e0,
+-		.uc13_pos    = 0x743c8,  .uc13_length = 0x5f60,
+-		.pcm4_pos    = 0x7a330,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x7a858,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5.sys&quot;,
+-		.version     = &quot;4.100.15.5&quot;,
+-		.md5         = &quot;b89bcf0a25aeb3b47030ac83287f894a&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x5e998,
+-		.iv_map      = INITVALS_MAP_V4_80_46,
+-		.uc4_pos     = 0x65908,  .uc4_length  = 0x4dc8,
+-		.uc5_pos     = 0x6a6d8,  .uc5_length  = 0x55b8,
+-		.uc11_pos    = 0x6fca0,  .uc11_length = 0x6ae0,
+-		.uc13_pos    = 0x76788,  .uc13_length = 0x6740,
+-		.pcm4_pos    = 0x7ced0,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x7d3f8,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;3.70.17.5&quot;,
+-		.md5         = &quot;f5590c8784b91dfd9ee092d3040b6e40&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x566f0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x5a360,  .uc2_length  = 0x3e80,
+-		.uc4_pos     = 0x5e1f0,  .uc4_length  = 0x4ed0,
+-		.uc5_pos     = 0x630d0,  .uc5_length  = 0x5680,
+-		.pcm4_pos    = 0x68760,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x68be0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;3.100.64.10&quot;,                          /* 05/12/2005 */
+-		.md5         = &quot;b8d76da338ecf2c650f5f7ca226ccf89&quot;,     /* for 64bit machines   */
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x50bf0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x54860,  .uc2_length  = 0x3f58,
+-		.uc4_pos     = 0x587c0,  .uc4_length  = 0x4e00,
+-		.uc5_pos     = 0x5d5d0,  .uc5_length  = 0x5800,
+-		.pcm4_pos    = 0x62de0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x63310,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;4.10.23.2&quot;,
+-		.md5         = &quot;7f4786fb45f509d8c2808b6e423addf1&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x5bac0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
+-		.uc4_pos     = 0x604c0,	 .uc4_length  = 0x4e90,
+-		.uc5_pos     = 0x65360,	 .uc5_length  = 0x56f8,
+-		.uc11_pos    = 0x6aa70,	 .uc11_length = 0x5bd0,
+-		.pcm4_pos    = 0x70650,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x70b80,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;4.40.19.0&quot;,
+-		.md5         = &quot;68f48a63a827a87bc04f6c8763228054&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x5dcd0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
+-		.uc4_pos     = 0x626e0,	 .uc4_length  = 0x4f58,
+-		.uc5_pos     = 0x67640,	 .uc5_length  = 0x57c0,
+-		.uc11_pos    = 0x6ce10,	 .uc11_length = 0x5b00,
+-		.pcm4_pos    = 0x72920,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x72e50,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;4.80.9.2&quot;,
+-		.md5         = &quot;c24bb2a1207a6f2c0ed79e2463df9dea&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x6eb30,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x742e0,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x79110,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x7e720,  .uc11_length = 0x6130,
+-		.uc13_pos    = 0x84860,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x8a580,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x8aab0,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;4.80.17.0&quot;,
+-		.md5         = &quot;4cf95baf3c3011e4c59d37336e50be57&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x70b30,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x762e0,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x7b110,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x80720,  .uc11_length = 0x6160,
+-		.uc13_pos    = 0x86890,  .uc13_length = 0x5d40,
+-		.pcm4_pos    = 0x8c5e0,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x8cb10,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;4.80.28.2&quot;,
+-		.md5         = &quot;038dedd70e8ddfe2b241c75b0d8c1633&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x72130,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x77900,  .uc4_length  = 0x4e48,
+-		.uc5_pos     = 0x7c750,  .uc5_length  = 0x5618,
+-		.uc11_pos    = 0x81d80,  .uc11_length = 0x6660,
+-		.uc13_pos    = 0x883f0,  .uc13_length = 0x5e58,
+-		.pcm4_pos    = 0x8e250,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x8e780,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl564.sys&quot;,
+-		.version     = &quot;4.100.15.5&quot;,
+-		.md5         = &quot;feaf7ec9f38a37945b6fb169617ec859&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x79d40,
+-		.iv_map      = INITVALS_MAP_V4_80_46,
+-		.uc4_pos     = 0x80ce0,  .uc4_length  = 0x4dc8,
+-		.uc5_pos     = 0x85ab0,  .uc5_length  = 0x55b8,
+-		.uc11_pos    = 0x8b080,  .uc11_length = 0x6ae0,
+-		.uc13_pos    = 0x91b70,  .uc13_length = 0x6740,
+-		.pcm4_pos    = 0x982c0,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x987f0,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl5a.sys&quot;,
+-		.version     = &quot;3.90.16.0&quot;,                            /* 12/06/2004 */
+-		.md5         = &quot;e6d927deea6c75bddf84080e6c3837b7&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3b4c8,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3f138,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x43088,  .uc4_length  = 0x4de8,
+-		.uc5_pos     = 0x47e78,  .uc5_length  = 0x57d8,
+-		.pcm4_pos    = 0x4d658,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4db80,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl6.sys&quot;,
+-		.version     = &quot;4.102.15.56&quot;,
+-		.md5         = &quot;509f672686af40f95859fde67108449b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x4db70,
+-		.iv_map      = INITVALS_MAP_V4_80_46,
+-		.uc4_pos     = 0x54af0,  .uc4_length  = 0x4e50,
+-		.uc5_pos     = 0x59948,  .uc5_length  = 0x5640,
+-		.uc11_pos    = 0x5ef90,  .uc11_length = 0x6d80,
+-		.uc13_pos    = 0x65d18,  .uc13_length = 0x69e0,
+-		.pcm4_pos    = 0x6c6f8,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6cc20,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl6.sys&quot;,
+-		.version     = &quot;4.102.15.61&quot;,
+-		.md5         = &quot;746f59822a5187510471fc46889b8cc9&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x4db70,
+-		.iv_map      = INITVALS_MAP_V4_80_46,
+-		.uc4_pos     = 0x54af0,  .uc4_length  = 0x4e50,
+-		.uc5_pos     = 0x59948,  .uc5_length  = 0x5640,
+-		.uc11_pos    = 0x5ef90,  .uc11_length = 0x6d80,
+-		.uc13_pos    = 0x65d18,  .uc13_length = 0x69e0,
+-		.pcm4_pos    = 0x6c6f8,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6cc20,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;bcmwl664.sys&quot;,
+-		.version     = &quot;4.102.15.61&quot;,
+-		.md5         = &quot;97f98e5e6a83585e42b1e1e15716aae8&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-			       V4_FIRMWARE,
+-		.iv_pos      = 0x6f2b0,
+-		.iv_map      = INITVALS_MAP_V4_102,
+-		.uc4_pos     = 0x76240,  .uc4_length  = 0x4e50,
+-		.uc5_pos     = 0x7b090,  .uc5_length  = 0x5640,
+-		.uc11_pos    = 0x806d0,  .uc11_length = 0x6d80,
+-		.uc13_pos    = 0x87450,  .uc13_length = 0x69e0,
+-		.pcm4_pos    = 0x8de30,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x8e350,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;d11ucode.o&quot;,
+-		.version     = &quot;3.31.16.0 ?&quot;, /*FIXME: version correct? */
+-		.md5         = &quot;31e6cac8a8129bf8f91291293e017329&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x40,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x3120,   .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x6eac,   .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0xb350,   .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x10214,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x10690,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;d11ucode.o&quot;,
+-		.version     = &quot;3.50.21.10&quot;,
+-		.md5         = &quot;2781ba96ee69bffd316315240be1f35b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x40,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3b28,   .uc2_length  = 0x3e00,
+-		.uc4_pos     = 0x792c,   .uc4_length  = 0x4628,
+-		.uc5_pos     = 0xbf58,   .uc5_length  = 0x5548,
+-		.pcm4_pos    = 0x114a4,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x11920,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;d11ucode.o&quot;,
+-		.version     = &quot;3.60.7.0 ? (1.3.2)&quot;,                   /* no version number found */
+-		.md5         = &quot;7774e5dda1daa2b3f83d279552ca1cc4&quot;,     /* but same fw files are also */
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,               /* in bcmwl5.sys 3.60.7.0 */
+-		.iv_pos      = 0x40,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3c38,   .uc2_length  = 0x3e08,
+-		.uc4_pos     = 0x7a44,   .uc4_length  = 0x4e58,
+-		.uc5_pos     = 0xc8a0,   .uc5_length  = 0x5608,
+-		.pcm4_pos    = 0x11eac,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x12328,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;d11ucode.o&quot;,
+-		.version     = &quot;3.60.13.0&quot;,
+-		.md5         = &quot;020a36ac61eff3fc833489f7b4dc0a8a&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x40,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3c88,   .uc2_length  = 0x3e30,
+-		.uc4_pos     = 0x7abc,   .uc4_length  = 0x4e80,
+-		.uc5_pos     = 0xc940,   .uc5_length  = 0x5630,
+-		.pcm4_pos    = 0x11f74,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x123f0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;d11ucode.o&quot;,
+-		.version     = &quot;3.90.7.0&quot;,                             /* 10/14/2004 */
+-		.md5         = &quot;b2580361620881b06fa810422ec8b7ce&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x60,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3cd0,   .uc2_length  = 0x3ec0,
+-		.uc4_pos     = 0x7b94,   .uc4_length  = 0x4d60,
+-		.uc5_pos     = 0xc8f8,   .uc5_length  = 0x5750,
+-		.pcm4_pos    = 0x1204c,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x12570,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;d11ucode.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,
+-		.md5         = &quot;2543935259739a8a879ccb8386647ac7&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x60,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3cd0,   .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x7c1c,   .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0xca10,   .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x121f4,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x12718,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.31.15.0&quot;,                            /* 07/28/2003 */
+-		.md5         = &quot;a85af65b5ae1d64ee11eab714faab843&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x32270,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x3d580,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x42444,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x428c0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.31.15.0&quot;,                            /* 07/28/2003 */
+-		.md5         = &quot;98dd50a95b02c8bcb3725c770df81dfc&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x32270,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x3d580,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x42444,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x428c0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.50.21.0&quot;,                            /* 05/11/2003 */
+-		.md5         = &quot;f71be0e1d14f68c98d916465a300d835&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x38990,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3c428,  .uc2_length  = 0x3db8,
+-		.uc4_pos     = 0x401e4,  .uc4_length  = 0x45d8,
+-		.uc5_pos     = 0x447c0,  .uc5_length  = 0x5050,
+-		.pcm4_pos    = 0x49814,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x49c90,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.50.21.10&quot;,                           /* 01/21/2004 */
+-		.md5         = &quot;191029d5e7097ed7db92cbd6e6131f85&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3a5d0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3e0b8,  .uc2_length  = 0x3e00,
+-		.uc4_pos     = 0x41ebc,  .uc4_length  = 0x4628,
+-		.uc5_pos     = 0x464e8,  .uc5_length  = 0x5548,
+-		.pcm4_pos    = 0x4ba34,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4beb0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.60.7.0 ? (1.3.2.0)&quot;,                 /* 02/04/2004 */
+-		.md5         = &quot;7009220d84c445797443aa0221b7d8a4&quot;,     /* no bcm version found */
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,               /* but same fw files are also */
+-		.iv_pos      = 0x545e0,                                /* in bcmwl5.sys 3.60.7.0, */
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x581d8,  .uc2_length  = 0x3e08,
+-		.uc4_pos     = 0x5bfe4,  .uc4_length  = 0x4e58,
+-		.uc5_pos     = 0x60e40,  .uc5_length  = 0x5608,
+-		.pcm4_pos    = 0x6644c,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x668c8,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.60.13.0&quot;,                            /* 05/05/2004 */
+-		.md5         = &quot;275dd4958eb94058d4650f58d534c635&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3b740,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3f388,  .uc2_length  = 0x3e30,
+-		.uc4_pos     = 0x431bc,  .uc4_length  = 0x4e80,
+-		.uc5_pos     = 0x48040,  .uc5_length  = 0x5630,
+-		.pcm4_pos    = 0x4d674,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4daf0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.60.13.0&quot;,                            /* 08/02/2004 */
+-		.md5         = &quot;4f20653a0b7c0bb3bd1ee0dd79f77785&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3b730,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x3f378,  .uc2_length  = 0x3e30,
+-		.uc4_pos     = 0x431ac,  .uc4_length  = 0x4e80,
+-		.uc5_pos     = 0x48030,  .uc5_length  = 0x5630,
+-		.pcm4_pos    = 0x4d664,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x4dae0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.90.7.0&quot;,                             /* 14/10/2004 */
+-		.md5         = &quot;f15b59ad4d6f6ad2c7f45193d033aff8&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4d890,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x51500,  .uc2_length  = 0x3ec0,
+-		.uc4_pos     = 0x553c4,  .uc4_length  = 0x4d60,
+-		.uc5_pos     = 0x5a128,  .uc5_length  = 0x5750,
+-		.pcm4_pos    = 0x5f87c,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5fda0,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.90.23.0&quot;,
+-		.md5         = &quot;2bbeb870cf50b1231b9fd61e320aee19&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4e080,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x51cf0,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x55c3c,  .uc4_length  = 0x4de8,
+-		.uc5_pos     = 0x5aa28,  .uc5_length  = 0x57d8,
+-		.pcm4_pos    = 0x60204,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x60728,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,                            /* 15/02/2005 */
+-		.md5         = &quot;984c42947552652d5ab61b78e7d12227&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4cf50,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x50bc0,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x54b0c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x59900,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x5f0e4,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5f608,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.90.38.0&quot;,
+-		.md5         = &quot;cdcdefb185700461a207d9671c6c501f&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4f0d0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x52d40,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x56c8c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5ba80,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x61264,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x61788,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;3.130.20.0&quot;,
+-		.md5         = &quot;9b39b50b7b4c02115c348d645878ab2d&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x56020,
+-		.iv_map      = INITVALS_MAP_V3_UP_TO_REV11,
+-		.uc2_pos     = 0x59ca0,  .uc2_length  = 0x3fe0,
+-		.uc4_pos     = 0x5dc84,  .uc4_length  = 0x4e78,
+-		.uc5_pos     = 0x62b00,  .uc5_length  = 0x5700,
+-		.uc11_pos    = 0x68204,  .uc11_length = 0x54a8,
+-		.pcm4_pos    = 0x6d6b0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6dbd4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;4.80.9.1&quot;,
+-		.md5         = &quot;c3bf18125b65de73f2d6b68dd63d60cf&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x65bc0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x6a700,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x6f52c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x74b30,  .uc11_length = 0x60f0,
+-		.uc13_pos    = 0x7ac24,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x80940,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x80e64,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl.o&quot;,
+-		.version     = &quot;4.80.9.1&quot;,
+-		.md5         = &quot;de3a5d0d4a795cf85dc706f75ac4c56d&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x65bc0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x6a700,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x6f52c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x74b30,  .uc11_length = 0x60f0,
+-		.uc13_pos    = 0x7ac24,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x80940,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x80e64,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_ap.o&quot;,
+-		.version     = &quot;3.31.16.0&quot;,                            /* 08/06/2003 */
+-		.md5         = &quot;463633e7bf0efc6c0f8eac2514a71024&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x32270,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x3d580,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x42444,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x428c0,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl_ap.o&quot;,
+-		.version     = &quot;3.90.7.0&quot;,
+-		.md5         = &quot;e0b96342c6a48a7eee8b4423fcb65b63&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3d7f0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x41460,  .uc2_length  = 0x3ec0,
+-		.uc4_pos     = 0x45324,  .uc4_length  = 0x4d60,
+-		.uc5_pos     = 0x4a088,  .uc5_length  = 0x5750,
+-		.pcm4_pos    = 0x4f7dc,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x4fd00,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_ap.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,                            /* 15/02/2005 */
+-		.md5         = &quot;0538296d46a854d2facc9a0db2088180&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3eac0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x42730,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x4667c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x4b470,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x50c54,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51178,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_ap.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,                            /* 15/02/2005 */
+-		.md5         = &quot;6c9073531a528dd455b716b5e821e696&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x3eac0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x42730,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x4667c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x4b470,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x50c54,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x51178,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_ap.o&quot;,
+-		.version     = &quot;3.130.20.0&quot;,
+-		.md5         = &quot;1e3a8bb0b994a929ef38da3a5a29155b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x42840,
+-		.iv_map      = INITVALS_MAP_V3_UP_TO_REV11,
+-		.uc2_pos     = 0x464c0,  .uc2_length  = 0x3fe0,
+-		.uc4_pos     = 0x4a4a4,  .uc4_length  = 0x4e78,
+-		.uc5_pos     = 0x4f320,  .uc5_length  = 0x5700,
+-		.uc11_pos    = 0x54a24,  .uc11_length = 0x54a8,
+-		.pcm4_pos    = 0x59ed0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5a3f4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_ap.o&quot;,
+-		.version     = &quot;4.80.9.2&quot;,
+-		.md5         = &quot;dc87fafbb53fc70ca161be3de97b5be1&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x4f0a0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x53be0,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x58a0c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x5e010,  .uc11_length = 0x6130,
+-		.uc13_pos    = 0x64144,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x69e60,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6a384,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_ap.o&quot;,
+-		.version     = &quot;4.80.17.0&quot;,
+-		.md5         = &quot;5f698bc71300590208dcfe86e8dde860&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x4fa40,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x54580,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x593ac,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x5e9b0,  .uc11_length = 0x6160,
+-		.uc13_pos    = 0x64b14,  .uc13_length = 0x5d40,
+-		.pcm4_pos    = 0x6a858,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6ad7c,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;3.31.16.0&quot;,                            /* 06/08/2003 */
+-		.md5         = &quot;22b90e4cbeee45ad7f78ff536c65712a&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x38020,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x3b100,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x3ee8c,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x43330,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x481f4,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x48670,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;3.31.16.0&quot;,                            /* 06/08/2003 */
+-		.md5         = &quot;dfce35a8b5cb6e53e1ab75342c7e7194&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x38020,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x3b100,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x3ee8c,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x43330,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x481f4,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x48670,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;3.90.7.0&quot;,
+-		.md5         = &quot;8aec09b7cf92538182729eddc6d89d97&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4d890,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x51500,  .uc2_length  = 0x3ec0,
+-		.uc4_pos     = 0x553c4,  .uc4_length  = 0x4d60,
+-		.uc5_pos     = 0x5a128,  .uc5_length  = 0x5750,
+-		.pcm4_pos    = 0x5f87c,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x5fda0,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,                            /* 15/02/2005 */
+-		.md5         = &quot;2922e6c48917eacd6c8c094347d2ec4b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4ebc0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x52830,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x5677c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5b570,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x60d54,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x61278,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,                            /* 15/02/2005 */
+-		.md5         = &quot;f9fa565a766e8befeb495a8a8c0c134b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4ebc0,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x52830,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x5677c,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x5b570,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x60d54,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x61278,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;3.130.20.0&quot;,                           /* 19/05/2005 */
+-		.md5         = &quot;e08665c5c5b66beb9c3b2dd54aa80cb3&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x56020,
+-		.iv_map      = INITVALS_MAP_V3_UP_TO_REV11,
+-		.uc2_pos     = 0x59ca0,  .uc2_length  = 0x3fe0,
+-		.uc4_pos     = 0x5dc84,  .uc4_length  = 0x4e78,
+-		.uc5_pos     = 0x62b00,  .uc5_length  = 0x5700,
+-		.uc11_pos    = 0x68204,  .uc11_length = 0x54a8,
+-		.pcm4_pos    = 0x6d6b0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6dbd4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;3.130.35.0&quot;,
+-		.md5         = &quot;e88dbfc4dfeff43ce9028c74bd0088c7&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x57c80,
+-		.iv_map      = INITVALS_MAP_V3_UP_TO_REV11,
+-		.uc2_pos     = 0x5b900,  .uc2_length  = 0x3fe0,
+-		.uc4_pos     = 0x5f8e4,  .uc4_length  = 0x4e78,
+-		.uc5_pos     = 0x64760,  .uc5_length  = 0x5700,
+-		.uc11_pos    = 0x69e64,  .uc11_length = 0x54a8,
+-		.pcm4_pos    = 0x6f310,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6f834,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;4.80.9.1&quot;,
+-		.md5         = &quot;5cc3774df07ef15506d08e45fab9b691&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x70220,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x75998,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x7a7c4,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x7fdc8,  .uc11_length = 0x60f0,
+-		.uc13_pos    = 0x85ebc,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x8bbd8,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x8c0fc,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;4.80.9.1&quot;,
+-		.md5         = &quot;cfc06ff322a4e3024bc4040ebe3d1bb9&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x632a0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x67de0,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x6cc0c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x72210,  .uc11_length = 0x60f0,
+-		.uc13_pos    = 0x78304,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x7e020,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x7e544,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;4.80.9.2&quot;,
+-		.md5         = &quot;2b353750e7063949fa08951370c8b06b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x632c0,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x67e00,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x6cc2c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x72230,  .uc11_length = 0x6130,
+-		.uc13_pos    = 0x78364,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x7e080,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x7e5a4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;4.80.17.0&quot;,
+-		.md5         = &quot;1fb9e0cc7613ccb82c8e2da3da888ed1&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x63e30,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x68970,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x6d79c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x72da0,  .uc11_length = 0x6160,
+-		.uc13_pos    = 0x78f04,  .uc13_length = 0x5d40,
+-		.pcm4_pos    = 0x7ec48,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x7f16c,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_apsta.o&quot;,
+-		.version     = &quot;4.80.53.0&quot;,
+-		.md5         = &quot;9207bc565c2fc9fa1591f6c7911d3fc0&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x67930,
+-		.iv_map      = INITVALS_MAP_V4_80_46,
+-		.uc4_pos     = 0x6dcf8,  .uc4_length  = 0x4e68,
+-		.uc5_pos     = 0x72b64,  .uc5_length  = 0x5640,
+-		.uc11_pos    = 0x781b0,  .uc11_length = 0x67e0,
+-		.uc13_pos    = 0x7e994,  .uc13_length = 0x5f60,
+-		.pcm4_pos    = 0x848f8,	 .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x84e1c,	 .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_sta.o&quot;,
+-		.version     = &quot;3.31.16.0&quot;,                            /* 08/06/2003 */
+-		.md5         = &quot;c3e663cb78b2fc299088de69fc11a9a9&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x317b0,
+-		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
+-		.uc2_pos     = 0x34890,  .uc2_length  = 0x3d88,
+-		.uc4_pos     = 0x3861c,  .uc4_length  = 0x44a0,
+-		.uc5_pos     = 0x3cac0,  .uc5_length  = 0x4ec0,
+-		.pcm4_pos    = 0x41984,  .pcm4_length = 0x478,
+-		.pcm5_pos    = 0x41e00,  .pcm5_length = 0x478,
+-	},
+-	{
+-		.name        = &quot;wl_sta.o&quot;,
+-		.version     = &quot;3.90.7.0&quot;,
+-		.md5         = &quot;df4eeee4c50323c823527084cbac7935&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x45d10,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x49980,  .uc2_length  = 0x3ec0,
+-		.uc4_pos     = 0x4d844,  .uc4_length  = 0x4d60,
+-		.uc5_pos     = 0x525a8,  .uc5_length  = 0x5750,
+-		.pcm4_pos    = 0x57cfc,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x58220,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_sta.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,                            /* 15/02/2005 */
+-		.md5         = &quot;4631d4d4c3ab943462e1ea24f4dba7bd&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x47040,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x4acb0,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x4ebfc,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x539f0,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x591d4,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x596f8,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_sta.o&quot;,
+-		.version     = &quot;3.90.37.0&quot;,                            /* 15/02/2005 */
+-		.md5         = &quot;bf824b38b3993e0a8b5a9bf717c428ed&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x47040,
+-		.iv_map      = INITVALS_MAP_V3_DEFAULT,
+-		.uc2_pos     = 0x4acb0,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x4ebfc,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x539f0,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x591d4,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x596f8,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_sta.o&quot;,
+-		.version     = &quot;3.130.20.0&quot;,
+-		.md5         = &quot;dbe071c3090297c1014c1c7f56d655ce&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+-		.iv_pos      = 0x4b160,
+-		.iv_map      = INITVALS_MAP_V3_UP_TO_REV11,
+-		.uc2_pos     = 0x4ede0,  .uc2_length  = 0x3fe0,
+-		.uc4_pos     = 0x52dc4,  .uc4_length  = 0x4e78,
+-		.uc5_pos     = 0x57c40,  .uc5_length  = 0x5700,
+-		.uc11_pos    = 0x5d344,  .uc11_length = 0x54a8,
+-		.pcm4_pos    = 0x627f0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x62d14,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_sta.o&quot;,
+-		.version     = &quot;4.80.9.2&quot;,
+-		.md5         = &quot;a4a396c45a4e88526fa8a8baca681cd3&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x54b00,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x59640,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x5e46c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x63a70,  .uc11_length = 0x6130,
+-		.uc13_pos    = 0x69ba4,  .uc13_length = 0x5d18,
+-		.pcm4_pos    = 0x6f8c0,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x6fde4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl_sta.o&quot;,
+-		.version     = &quot;4.80.17.0&quot;,
+-		.md5         = &quot;30e0f1a8fea33d4869e1a45ed3a91b1b&quot;,
+-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+-		               V4_FIRMWARE,
+-		.iv_pos      = 0x55530,
+-		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+-		.uc4_pos     = 0x5a070,  .uc4_length  = 0x4e28,
+-		.uc5_pos     = 0x5ee9c,  .uc5_length  = 0x55f8,
+-		.uc11_pos    = 0x644a0,  .uc11_length = 0x6160,
+-		.uc13_pos    = 0x6a604,  .uc13_length = 0x5d40,
+-		.pcm4_pos    = 0x70348,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x7086c,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl96345GW.o_save&quot;,
+-		.version     = &quot;3.91.41.0&quot;,
+-		.md5         = &quot;1b1b9cdceccf0758a6bb21371edfe011&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x523cc,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x4e484,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x49690,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x43eac,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x43988,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x43464,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl96348GW.o_save&quot;,
+-		.version     = &quot;3.91.41.0&quot;,
+-		.md5         = &quot;4578369ebe849f268b464d7fb3d1ea6b&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x5152c,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x4d5e4,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x487f0,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x4300c,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x42ae8,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x425c4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl96348GW.o_save&quot;,
+-		.version     = &quot;3.91.41.0&quot;,
+-		.md5         = &quot;4b64e7bf6b308cd8433ba5f04a091a79&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x5147c,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x4d534,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x48740,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x42f5c,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x42a38,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x42514,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl96348GW.o_save&quot;,
+-		.version     = &quot;3.131.35.0&quot;,
+-		.md5         = &quot;4af53099070fc26a755c42e86c824003&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x74628,
+-		.iv_map      = INITVALS_MAP_V3_UP_TO_REV11_REVERSE_ORDER,
+-		.uc2_pos     = 0x70648,  .uc2_length  = 0x3fe0,
+-		.uc4_pos     = 0x6b7cc,  .uc4_length  = 0x4e78,
+-		.uc5_pos     = 0x660c8,  .uc5_length  = 0x5700,
+-		.uc11_pos    = 0x60c1c,  .uc11_length = 0x54a8,
+-		.pcm4_pos    = 0x606f8,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x601d4,  .pcm5_length = 0x520,
+-	},
+-	{
+-		.name        = &quot;wl96348GWV_DT.o_save&quot;,
+-		.version     = &quot;3.91.41.0&quot;,
+-		.md5         = &quot;e48ecf90086e48061f49cd4af2c158b3&quot;,
+-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+-		.iv_pos      = 0x54dec,
+-		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+-		.uc2_pos     = 0x50ea4,  .uc2_length  = 0x3f48,
+-		.uc4_pos     = 0x4c0b0,  .uc4_length  = 0x4df0,
+-		.uc5_pos     = 0x468cc,  .uc5_length  = 0x57e0,
+-		.pcm4_pos    = 0x463a8,  .pcm4_length = 0x520,
+-		.pcm5_pos    = 0x45e84,  .pcm5_length = 0x520,
+-	},
+ };
+ 
+ #define FILES (sizeof(files) / sizeof(files[0]))
+
+Modified: trunk/fwcutter/md5.c
+===================================================================
+--- trunk/fwcutter/md5.c	2007-08-08 13:59:04 UTC (rev 1227)
++++ trunk/fwcutter/md5.c	2007-08-15 17:26:29 UTC (rev 1228)
+@@ -19,29 +19,24 @@
+    prototypes) to maintain the tradition that Netfone will compile
+    with Sun's original &quot;cc&quot;. */
+ /* Ripped out ugly K&amp;R again ;) --mbuesch */
++/* killed stupid endianness thing --jmberg */
+ 
+ #include &lt;memory.h&gt;		 /* for memcpy() */
+ #include &quot;md5.h&quot;
+ 
+-extern int big_endian_cpu;
+-
+-/*
+- * Note: this code is harmless on little-endian machines,
+- *       but we return early nevertheless.
+- */
+ static void byteReverse(unsigned char *buf, unsigned longs)
+ {
++#if __BYTE_ORDER == __LITTLE_ENDIAN
++/* we need the value in big-endian */
+     uint32_t t;
+ 
+-    if (!big_endian_cpu)
+-        return;
+-
+     do {
+ 	t = (uint32_t) ((unsigned) buf[3] &lt;&lt; 8 | buf[2]) &lt;&lt; 16 |
+ 	    ((unsigned) buf[1] &lt;&lt; 8 | buf[0]);
+ 	*(uint32_t *) buf = t;
+ 	buf += 4;
+     } while (--longs);
++#endif
+ }
+ 
+ /* The four core functions - F1 is optimized somewhat */
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000015.html">r1227 - trunk/sprom
+</A></li>
+	<LI>Next message: <A HREF="000017.html">r1229 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#16">[ date ]</a>
+              <a href="thread.html#16">[ thread ]</a>
+              <a href="subject.html#16">[ subject ]</a>
+              <a href="author.html#16">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">More information about the Bcm43xx-svn
+mailing list</a><br>
+</body></html>

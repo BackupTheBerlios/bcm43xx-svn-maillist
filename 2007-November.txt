@@ -1,0 +1,22 @@
+From tuxbuesch at mail.berlios.de  Sun Nov 18 15:13:53 2007
+From: tuxbuesch at mail.berlios.de (tuxbuesch at BerliOS)
+Date: Sun, 18 Nov 2007 15:13:53 +0100
+Subject: r1238 - trunk
+Message-ID: <200711181413.lAIEDr8R003908@sheep.berlios.de>
+
+Author: tuxbuesch
+Date: 2007-11-18 15:13:53 +0100 (Sun, 18 Nov 2007)
+New Revision: 1238
+
+Removed:
+   trunk/fwcutter/
+   trunk/ival/
+   trunk/sprom/
+Log:
+b43 tools are now maintained in
+http://bu3sch.de/git/b43-tools.git/
+
+
+
+
+

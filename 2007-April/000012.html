@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> r1225 - trunk/fwcutter
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-svn/2007-April/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1225%20-%20trunk/fwcutter&In-Reply-To=%3C200704062207.l36M7i3F018205%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>r1225 - trunk/fwcutter</H1>
+    <B>marlanx at mail.berlios.de</B> 
+    <A HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1225%20-%20trunk/fwcutter&In-Reply-To=%3C200704062207.l36M7i3F018205%40sheep.berlios.de%3E"
+       TITLE="r1225 - trunk/fwcutter">marlanx at mail.berlios.de
+       </A><BR>
+    <I>Sat Apr  7 00:07:44 CEST 2007</I>
+    <P><UL>
+        
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#12">[ date ]</a>
+              <a href="thread.html#12">[ thread ]</a>
+              <a href="subject.html#12">[ subject ]</a>
+              <a href="author.html#12">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: marlanx
+Date: 2007-04-07 00:07:42 +0200 (Sat, 07 Apr 2007)
+New Revision: 1225
+
+Modified:
+   trunk/fwcutter/fwcutter_list.h
+Log:
+AppleAirPortBrcm4311 v4.80.79.1 extraction support;
+This driver is part of the package AirPortExtremeUpdate2007002.dmg.
+You will find ucode rev 0x15f patchlevel 0x50d inside.
+
+Modified: trunk/fwcutter/fwcutter_list.h
+===================================================================
+--- trunk/fwcutter/fwcutter_list.h	2007-02-17 21:14:25 UTC (rev 1224)
++++ trunk/fwcutter/fwcutter_list.h	2007-04-06 22:07:42 UTC (rev 1225)
+@@ -366,6 +366,21 @@
+ 		.pcm4_pos    = 0x14b848,  .pcm4_length = 0x520,
+ 		.pcm5_pos    = 0x14b328,  .pcm5_length = 0x520,
+ 	},
++	{
++		.name        = &quot;AppleAirPortBrcm4311&quot;,
++		.version     = &quot;4.80.79.1&quot;,
++		.md5         = &quot;dc2b37598f0651b6cf5eaaf9022d9efa&quot;,
++		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
++		               V4_FIRMWARE,
++		.iv_pos      = 0x87cc0,
++		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
++		.uc4_pos     = 0x82e40,   .uc4_length  = 0x4e70,
++		.uc5_pos     = 0x7d7e0,   .uc5_length  = 0x5648,
++		.uc11_pos    = 0x76f40,   .uc11_length = 0x6888,
++		.uc13_pos    = 0x70fc0,   .uc13_length = 0x5f80,
++		.pcm4_pos    = 0x70aa0,   .pcm4_length = 0x520,
++		.pcm5_pos    = 0x70580,   .pcm5_length = 0x520,
++	},
+ 	{ 
+ 		.name        = &quot;bcmwl5.sys&quot;,
+ 		.version     = &quot;3.8.27.0&quot;,
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#12">[ date ]</a>
+              <a href="thread.html#12">[ thread ]</a>
+              <a href="subject.html#12">[ subject ]</a>
+              <a href="author.html#12">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">More information about the Bcm43xx-svn
+mailing list</a><br>
+</body></html>

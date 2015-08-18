@@ -1,0 +1,42 @@
+From tuxbuesch at mail.berlios.de  Tue May  8 01:29:32 2007
+From: tuxbuesch at mail.berlios.de (tuxbuesch at BerliOS)
+Date: Tue, 8 May 2007 01:29:32 +0200
+Subject: r1226 - trunk/sprom
+Message-ID: <200705072329.l47NTWLW005569@sheep.berlios.de>
+
+Author: tuxbuesch
+Date: 2007-05-08 01:29:31 +0200 (Tue, 08 May 2007)
+New Revision: 1226
+
+Modified:
+   trunk/sprom/ssb_sprom.c
+Log:
+fix typos.
+
+
+
+Modified: trunk/sprom/ssb_sprom.c
+===================================================================
+--- trunk/sprom/ssb_sprom.c	2007-04-06 22:07:42 UTC (rev 1225)
++++ trunk/sprom/ssb_sprom.c	2007-05-07 23:29:31 UTC (rev 1226)
+@@ -451,7 +451,7 @@
+ 			value = 1;
+ 		break;
+ 	case VALUE_ANTBG0:
+-		desc = "B/G PHY antenna 1 available";
++		desc = "B/G PHY antenna 0 available";
+ 		offset = SPROM_BOARDREV + 1;
+ 		value = 0;
+ 		if (sprom[SPROM_BOARDREV + 1] & (1 << 6))
+@@ -470,7 +470,7 @@
+ 		value = sprom[SPROM_ANTENNA_GAIN];
+ 		break;
+ 	case VALUE_ANTGBG:
+-		desc = "A PHY antenna gain";
++		desc = "B/G PHY antenna gain";
+ 		offset = SPROM_ANTENNA_GAIN + 1;
+ 		value = sprom[SPROM_ANTENNA_GAIN + 1];
+ 		break;
+
+
+

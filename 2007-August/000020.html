@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> r1232 - trunk/fwcutter
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-svn/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1232%20-%20trunk/fwcutter&In-Reply-To=%3C200708182134.l7ILYsmN018815%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000019.html">
+   <LINK REL="Next"  HREF="000021.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>r1232 - trunk/fwcutter</H1>
+    <B>tuxbuesch at BerliOS</B> 
+    <A HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1232%20-%20trunk/fwcutter&In-Reply-To=%3C200708182134.l7ILYsmN018815%40sheep.berlios.de%3E"
+       TITLE="r1232 - trunk/fwcutter">tuxbuesch at mail.berlios.de
+       </A><BR>
+    <I>Sat Aug 18 23:34:54 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000019.html">r1231 - trunk/fwcutter
+</A></li>
+        <LI>Next message: <A HREF="000021.html">r1233 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#20">[ date ]</a>
+              <a href="thread.html#20">[ thread ]</a>
+              <a href="subject.html#20">[ subject ]</a>
+              <a href="author.html#20">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: tuxbuesch
+Date: 2007-08-18 23:34:54 +0200 (Sat, 18 Aug 2007)
+New Revision: 1232
+
+Modified:
+   trunk/fwcutter/Makefile
+Log:
+Fix makefile
+
+
+
+Modified: trunk/fwcutter/Makefile
+===================================================================
+--- trunk/fwcutter/Makefile	2007-08-18 21:27:04 UTC (rev 1231)
++++ trunk/fwcutter/Makefile	2007-08-18 21:34:54 UTC (rev 1232)
+@@ -2,29 +2,33 @@
+ 
+ CC ?= cc
+ PREFIX ?= /usr/local
+-CFLAGS ?= -O2 -fomit-frame-pointer
++CFLAGS ?= -Os -fomit-frame-pointer
+ CFLAGS += -std=c99 -Wall -pedantic -D_BSD_SOURCE
+ LDFLAGS ?=
+ 
+ 
+ OBJECTS = fwcutter.o md5.o
++BIN	= b43-fwcutter
+ 
+ CFLAGS += -DFWCUTTER_VERSION_=$(VERSION)
+ 
+-all: fwcutter
++all: $(BIN)
+ 
+-fwcutter: $(OBJECTS)
+-	$(CC) $(CFLAGS) -o b43-fwcutter $(OBJECTS) $(LDFLAGS)
++fwcutter.o: fwcutter.h fwcutter_list.h md5.h
+ 
++md5.o: md5.h
++
++$(BIN): $(OBJECTS)
++	$(CC) $(CFLAGS) -o $(BIN) $(OBJECTS) $(LDFLAGS)
++
+ install: all
+ 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/bin/
+-	-install -o 0 -g 0 -m 755 b43-fwcutter $(PREFIX)/bin/
++	-install -o 0 -g 0 -m 755 $(BIN) $(PREFIX)/bin/
+ 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/man/man1/
+-	-install -o 0 -g 0 -m 644 b43-fwcutter.1 $(PREFIX)/man/man1/
++	-install -o 0 -g 0 -m 644 $(BIN).1 $(PREFIX)/man/man1/
+ 
+ clean:
+-	-rm -f *~ *.o *.orig *.rej *.fw b43-fwcutter
++	-rm -f *.o $(BIN)
+ 
+-# dependencies
+-fwcutter.o: fwcutter.h md5.h fwcutter_list.h
+-md5.o: md5.h
++distclean: clean
++	-rm -f *.fw *.orig *.rej *~
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000019.html">r1231 - trunk/fwcutter
+</A></li>
+	<LI>Next message: <A HREF="000021.html">r1233 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#20">[ date ]</a>
+              <a href="thread.html#20">[ thread ]</a>
+              <a href="subject.html#20">[ subject ]</a>
+              <a href="author.html#20">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">More information about the Bcm43xx-svn
+mailing list</a><br>
+</body></html>

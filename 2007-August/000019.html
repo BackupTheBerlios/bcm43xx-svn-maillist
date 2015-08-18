@@ -1,0 +1,362 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> r1231 - trunk/fwcutter
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-svn/2007-August/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1231%20-%20trunk/fwcutter&In-Reply-To=%3C200708182127.l7ILR4wH018431%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000018.html">
+   <LINK REL="Next"  HREF="000020.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>r1231 - trunk/fwcutter</H1>
+    <B>tuxbuesch at BerliOS</B> 
+    <A HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1231%20-%20trunk/fwcutter&In-Reply-To=%3C200708182127.l7ILR4wH018431%40sheep.berlios.de%3E"
+       TITLE="r1231 - trunk/fwcutter">tuxbuesch at mail.berlios.de
+       </A><BR>
+    <I>Sat Aug 18 23:27:04 CEST 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000018.html">r1230 - trunk/fwcutter
+</A></li>
+        <LI>Next message: <A HREF="000020.html">r1232 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#19">[ date ]</a>
+              <a href="thread.html#19">[ thread ]</a>
+              <a href="subject.html#19">[ subject ]</a>
+              <a href="author.html#19">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: tuxbuesch
+Date: 2007-08-18 23:27:04 +0200 (Sat, 18 Aug 2007)
+New Revision: 1231
+
+Modified:
+   trunk/fwcutter/fwcutter.c
+   trunk/fwcutter/fwcutter.h
+Log:
+Change file format to include a header and reduce IV file size.
+
+
+
+Modified: trunk/fwcutter/fwcutter.c
+===================================================================
+--- trunk/fwcutter/fwcutter.c	2007-08-15 17:50:04 UTC (rev 1230)
++++ trunk/fwcutter/fwcutter.c	2007-08-18 21:27:04 UTC (rev 1231)
+@@ -38,6 +38,57 @@
+ 
+ static struct cmdline_args cmdargs;
+ 
++
++/* Convert a CPU-endian 16bit integer to Big-Endian */
++static be16_t to_be16(uint16_t v)
++{
++	uint8_t ret[2];
++
++	ret[0] = (v &amp; 0xFF00) &gt;&gt; 8;
++	ret[1] = (v &amp; 0x00FF);
++
++	return *((be16_t *)ret);
++}
++
++#if 0
++/* Convert a Big-Endian 16bit integer to CPU-endian */
++static uint16_t from_be16(be16_t v)
++{
++	uint16_t ret = 0;
++
++	ret |= (uint16_t)(((uint8_t *)&amp;v)[0]) &lt;&lt; 8;
++	ret |= (uint16_t)(((uint8_t *)&amp;v)[1]);
++
++	return ret;
++}
++#endif
++
++/* Convert a CPU-endian 32bit integer to Big-Endian */
++static be32_t to_be32(uint32_t v)
++{
++	uint8_t ret[4];
++
++	ret[0] = (v &amp; 0xFF000000) &gt;&gt; 24;
++	ret[1] = (v &amp; 0x00FF0000) &gt;&gt; 16;
++	ret[2] = (v &amp; 0x0000FF00) &gt;&gt; 8;
++	ret[3] = (v &amp; 0x000000FF);
++
++	return *((be32_t *)ret);
++}
++
++/* Convert a Big-Endian 32bit integer to CPU-endian */
++static uint32_t from_be32(be32_t v)
++{
++	uint32_t ret = 0;
++
++	ret |= (uint32_t)(((uint8_t *)&amp;v)[0]) &lt;&lt; 24;
++	ret |= (uint32_t)(((uint8_t *)&amp;v)[1]) &lt;&lt; 16;
++	ret |= (uint32_t)(((uint8_t *)&amp;v)[2]) &lt;&lt; 8;
++	ret |= (uint32_t)(((uint8_t *)&amp;v)[3]);
++
++	return ret;
++}
++
+ /* tiny disassembler */
+ static void print_ucode_version(struct insn *insn)
+ {
+@@ -156,20 +207,69 @@
+ 
+ #define swap_endianness_pcm swap_endianness_ucode
+ 
+-static void swap_endianness_iv(uint8_t *buf, uint32_t len)
++static void swap_endianness_iv(struct iv *iv)
+ {
+-	struct iv *iv = (struct iv*)buf;
++	iv-&gt;reg = bswap_16(iv-&gt;reg);
++	iv-&gt;size = bswap_16(iv-&gt;size);
++	iv-&gt;val = bswap_32(iv-&gt;val);
++}
++
++static void build_ivs(struct b43_iv **_out, size_t *_out_size,
++		      struct iv *in, size_t in_size,
++		      struct fw_header *hdr,
++		      uint32_t flags)
++{
++	struct iv *iv;
++	struct b43_iv *out;
+ 	uint32_t i;
++	size_t out_size = 0;
+ 
+-	for (i=0; i&lt;len/sizeof(*iv); i++) {
+-		iv[i].reg = bswap_16(iv[i].reg);
+-		iv[i].size = bswap_16(iv[i].size);
+-		iv[i].val = bswap_32(iv[i].val);
++	if (sizeof(struct b43_iv) != 6) {
++		printf(&quot;sizeof(struct b43_iv) != 6\n&quot;);
++		exit(255);
+ 	}
++
++	out = malloc(in_size);
++	if (!out) {
++		perror(&quot;failed to allocate buffer&quot;);
++		exit(1);
++	}
++	*_out = out;
++	for (i = 0; i &lt; in_size / sizeof(*iv); i++, in++) {
++		if (flags &amp; FW_FLAG_LE)
++			swap_endianness_iv(in);
++		/* input-IV is BigEndian */
++		if (in-&gt;reg &amp; to_be16(~FW_IV_OFFSET_MASK)) {
++			printf(&quot;Input file IV offset &gt; 0x%X\n&quot;, FW_IV_OFFSET_MASK);
++			exit(1);
++		}
++		out-&gt;offset_size = in-&gt;reg;
++		if (in-&gt;size == to_be16(4)) {
++			out-&gt;offset_size |= to_be16(FW_IV_32BIT);
++			out-&gt;data.d32 = in-&gt;val;
++
++			out_size += sizeof(be16_t) + sizeof(be32_t);
++			out = (struct b43_iv *)((uint8_t *)out + sizeof(be16_t) + sizeof(be32_t));
++		} else if (in-&gt;size == to_be16(2)) {
++			if (in-&gt;val &amp; to_be32(~0xFFFF)) {
++				printf(&quot;Input file 16bit IV value overflow\n&quot;);
++				exit(1);
++			}
++			out-&gt;data.d16 = to_be16(from_be32(in-&gt;val));
++
++			out_size += sizeof(be16_t) + sizeof(be16_t);
++			out = (struct b43_iv *)((uint8_t *)out + sizeof(be16_t) + sizeof(be16_t));
++		} else {
++			printf(&quot;Input file IV size != 2|4\n&quot;);
++			exit(1);
++		}
++	}
++	hdr-&gt;size = to_be32(i);
++	*_out_size = out_size;
+ }
+ 
+ static void write_file(const char *name, uint8_t *buf, uint32_t len,
+-		       uint32_t flags)
++		       const struct fw_header *hdr, uint32_t flags)
+ {
+ 	FILE *f;
+ 	char nbuf[4096];
+@@ -205,7 +305,14 @@
+ 		perror(&quot;failed to open file&quot;);
+ 		exit(2);
+ 	}
+-	fwrite(buf, 1, len, f);
++	if (fwrite(hdr, sizeof(*hdr), 1, f) != 1) {
++		perror(&quot;failed to write file&quot;);
++		exit(2);
++	}
++	if (fwrite(buf, 1, len, f) != len) {
++		perror(&quot;failed to write file&quot;);
++		exit(2);
++	}
+ 	fclose(f);
+ }
+ 
+@@ -213,14 +320,23 @@
+ 				uint32_t flags)
+ {
+ 	uint8_t *buf;
++	size_t data_length;
+ 	int ucode_rev = 0;
++	struct fw_header hdr;
+ 
++	memset(&amp;hdr, 0, sizeof(hdr));
++	hdr.ver = FW_HDR_VER;
++
+ 	if (fseek(f, extract-&gt;offset, SEEK_SET)) {
+ 		perror(&quot;failed to seek on file&quot;);
+ 		exit(2);
+ 	}
+ 
+ 	buf = malloc(extract-&gt;length);
++	if (!buf) {
++		perror(&quot;failed to allocate buffer&quot;);
++		exit(3);
++	}
+ 	if (fread(buf, 1, extract-&gt;length, f) != extract-&gt;length) {
+ 		perror(&quot;failed to read complete data&quot;);
+ 		exit(3);
+@@ -233,24 +349,37 @@
+ 		ucode_rev += 1;
+ 	case EXT_UCODE_1:
+ 		ucode_rev += 1;
++		data_length = extract-&gt;length;
+ 		if (flags &amp; FW_FLAG_LE)
+-			swap_endianness_ucode(buf, extract-&gt;length);
+-		analyse_ucode(ucode_rev, buf, extract-&gt;length);
++			swap_endianness_ucode(buf, data_length);
++		analyse_ucode(ucode_rev, buf, data_length);
++		hdr.type = FW_TYPE_UCODE;
++		hdr.size = to_be32(data_length);
+ 		break;
+ 	case EXT_PCM:
++		data_length = extract-&gt;length;
+ 		if (flags &amp; FW_FLAG_LE)
+-			swap_endianness_pcm(buf, extract-&gt;length);
++			swap_endianness_pcm(buf, data_length);
++		hdr.type = FW_TYPE_PCM;
++		hdr.size = to_be32(data_length);
+ 		break;
+-	case EXT_IV:
+-		if (flags &amp; FW_FLAG_LE)
+-			swap_endianness_iv(buf, extract-&gt;length);
++	case EXT_IV: {
++		struct b43_iv *ivs;
++
++		hdr.type = FW_TYPE_IV;
++		build_ivs(&amp;ivs, &amp;data_length,
++			  (struct iv *)buf, extract-&gt;length,
++			  &amp;hdr, flags);
++		free(buf);
++		buf = (uint8_t *)ivs;
+ 		break;
++	}
+ 	default:
+ 		exit(255);
+ 	}
+ 
+ 	if (!cmdargs.identify_only)
+-		write_file(extract-&gt;name, buf, extract-&gt;length, flags);
++		write_file(extract-&gt;name, buf, data_length, &amp;hdr, flags);
+ 
+ 	free(buf);
+ }
+
+Modified: trunk/fwcutter/fwcutter.h
+===================================================================
+--- trunk/fwcutter/fwcutter.h	2007-08-15 17:50:04 UTC (rev 1230)
++++ trunk/fwcutter/fwcutter.h	2007-08-18 21:27:04 UTC (rev 1231)
+@@ -8,6 +8,9 @@
+ #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
+ #define FWCUTTER_VERSION	fwcutter_stringify(FWCUTTER_VERSION_)
+ 
++typedef uint16_t be16_t; /* Big-endian 16bit */
++typedef uint32_t be32_t; /* Big-endian 32bit */
++
+ #define ARG_MATCH	0
+ #define ARG_NOMATCH	1
+ #define ARG_ERROR	-1
+@@ -23,9 +26,10 @@
+ 	uint16_t op1, op2, op3;
+ };
+ 
++/* The IV how it's done in the binary driver files. */
+ struct iv {
+-	uint16_t reg, size;
+-	uint32_t val;
++	be16_t reg, size;
++	be32_t val;
+ } __attribute__((__packed__));
+ 
+ enum extract_type {
+@@ -54,4 +58,35 @@
+ 	const uint32_t flags;
+ };
+ 
++/* The header that's put in to every .fw file */
++struct fw_header {
++	/* Type of the firmware data */
++	uint8_t type;
++	/* Version number of the firmware data format */
++	uint8_t ver;
++	uint8_t __padding[2];
++	/* Size of the data. For ucode and PCM this is in bytes.
++	 * For IV this is in number-of-ivs. */
++	be32_t size;
++} __attribute__((__packed__));
++
++#define FW_TYPE_UCODE	'u'
++#define FW_TYPE_PCM	'p'
++#define FW_TYPE_IV	'i'
++
++#define FW_HDR_VER	0x01
++
++/* The IV in the .fw file */
++struct b43_iv {
++	be16_t offset_size;
++	union {
++		be16_t d16;
++		be32_t d32;
++	} data __attribute__((__packed__));
++} __attribute__((__packed__));
++
++#define FW_IV_OFFSET_MASK	0x7FFF
++#define FW_IV_32BIT		0x8000
++
++
+ #endif /* _FWCUTTER_H_ */
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000018.html">r1230 - trunk/fwcutter
+</A></li>
+	<LI>Next message: <A HREF="000020.html">r1232 - trunk/fwcutter
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#19">[ date ]</a>
+              <a href="thread.html#19">[ thread ]</a>
+              <a href="subject.html#19">[ subject ]</a>
+              <a href="author.html#19">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">More information about the Bcm43xx-svn
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> r1215 - trunk/fwcutter
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-svn/2007-January/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1215%20-%20trunk/fwcutter&In-Reply-To=%3C200701271040.l0RAeusu031014%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000001.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>r1215 - trunk/fwcutter</H1>
+    <B>marlanx at mail.berlios.de</B> 
+    <A HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1215%20-%20trunk/fwcutter&In-Reply-To=%3C200701271040.l0RAeusu031014%40sheep.berlios.de%3E"
+       TITLE="r1215 - trunk/fwcutter">marlanx at mail.berlios.de
+       </A><BR>
+    <I>Sat Jan 27 11:40:56 CET 2007</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000001.html">r1214 - trunk/fwcutter
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2">[ date ]</a>
+              <a href="thread.html#2">[ thread ]</a>
+              <a href="subject.html#2">[ subject ]</a>
+              <a href="author.html#2">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: marlanx
+Date: 2007-01-27 11:40:55 +0100 (Sat, 27 Jan 2007)
+New Revision: 1215
+
+Modified:
+   trunk/fwcutter/fwcutter_list.h
+Log:
+AppleAirPortBrcm4311 v4.80.76.0 (AirPort Extreme Update 2007-001) support
+ucode revision 0x015f, patchlevel 0x050c.
+
+Modified: trunk/fwcutter/fwcutter_list.h
+===================================================================
+--- trunk/fwcutter/fwcutter_list.h	2007-01-26 20:31:10 UTC (rev 1214)
++++ trunk/fwcutter/fwcutter_list.h	2007-01-27 10:40:55 UTC (rev 1215)
+@@ -351,6 +351,21 @@
+ 		.pcm4_pos    = 0x1421e8,  .pcm4_length = 0x520,
+ 		.pcm5_pos    = 0x141cc8,  .pcm5_length = 0x520,
+ 	},
++	{
++		.name        = &quot;AppleAirPortBrcm4311&quot;,
++		.version     = &quot;4.80.76.0&quot;,
++		.md5         = &quot;f5963816541d6f5fee2bd1e078919e93&quot;,
++		.flags       = BYTE_ORDER_BIG_ENDIAN |
++		               V4_FIRMWARE,
++		.iv_pos      = 0x162a3c,
++		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
++		.uc4_pos     = 0x15dbcc,  .uc4_length  = 0x4e70,
++		.uc5_pos     = 0x158584,  .uc5_length  = 0x5648,
++		.uc11_pos    = 0x151cf0,  .uc11_length = 0x6890,
++		.uc13_pos    = 0x14bd68,  .uc13_length = 0x5f88,
++		.pcm4_pos    = 0x14b848,  .pcm4_length = 0x520,
++		.pcm5_pos    = 0x14b328,  .pcm5_length = 0x520,
++	},
+ 	{ 
+ 		.name        = &quot;bcmwl5.sys&quot;,                           /* renamed to WMP11V27.sys */
+ 		.version     = &quot;3.8.28.0&quot;,
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000001.html">r1214 - trunk/fwcutter
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2">[ date ]</a>
+              <a href="thread.html#2">[ thread ]</a>
+              <a href="subject.html#2">[ subject ]</a>
+              <a href="author.html#2">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">More information about the Bcm43xx-svn
+mailing list</a><br>
+</body></html>

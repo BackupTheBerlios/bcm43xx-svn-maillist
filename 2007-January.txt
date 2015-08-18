@@ -1,0 +1,178 @@
+From marlanx at mail.berlios.de  Tue Jan 23 23:43:54 2007
+From: marlanx at mail.berlios.de (marlanx at mail.berlios.de)
+Date: Tue, 23 Jan 2007 23:43:54 +0100
+Subject: r1213 - trunk/fwcutter
+Message-ID: <200701232243.l0NMhs4b032038@sheep.berlios.de>
+
+Author: marlanx
+Date: 2007-01-23 23:43:51 +0100 (Tue, 23 Jan 2007)
+New Revision: 1213
+
+Modified:
+   trunk/fwcutter/fwcutter.h
+   trunk/fwcutter/fwcutter_list.h
+Log:
+support for vista driver bcmwl6.sys and bcmwl664.sys v4.102.15.61
+http://download.softpedia.ro/dl/4c5889cbb64eecb6644196362543d609/45b68638/300023528/drivers/NETWORK/broadcom%20bcm-43x-4.102.15.61-vista.exe
+
+
+Modified: trunk/fwcutter/fwcutter.h
+===================================================================
+--- trunk/fwcutter/fwcutter.h	2006-12-08 20:59:57 UTC (rev 1212)
++++ trunk/fwcutter/fwcutter.h	2007-01-23 22:43:51 UTC (rev 1213)
+@@ -53,6 +53,7 @@
+ 	INITVALS_MAP_V4_UP_TO_REV13,
+ 	INITVALS_MAP_V4_80_46,
+ 	INITVALS_MAP_V4_80_46_REVERSE_ORDER,
++	INITVALS_MAP_V4_102,
+ };
+ 
+ struct cmdline_args {
+@@ -173,6 +174,12 @@
+ 	    9, 8, 7, 6, 5, 4, 3, 2, 1 }
+ 	},
+ 
++        /* version 4.102. , Windows Vista 64bit */
++        { INITVALS_MAP_V4_102, 25,
++          { 1, 2, 4, 3, 5, 0, 6, 7, 0, 8, 0, 9, 10, 0, 0, 0, 17, 18,
++            19, 20, 21, 22, 23, 24, 25 }
++        },
++
+ 	{ 0 },
+ };
+ 
+
+Modified: trunk/fwcutter/fwcutter_list.h
+===================================================================
+--- trunk/fwcutter/fwcutter_list.h	2006-12-08 20:59:57 UTC (rev 1212)
++++ trunk/fwcutter/fwcutter_list.h	2007-01-23 22:43:51 UTC (rev 1213)
+@@ -1206,6 +1206,36 @@
+ 		.pcm5_pos    = 0x4db80,  .pcm5_length = 0x520,
+ 	},
+ 	{
++		.name        = "bcmwl6.sys",
++		.version     = "4.102.15.61",
++		.md5         = "746f59822a5187510471fc46889b8cc9",
++		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
++			       V4_FIRMWARE,
++		.iv_pos      = 0x4db70,
++		.iv_map      = INITVALS_MAP_V4_80_46,
++		.uc4_pos     = 0x54af0,  .uc4_length  = 0x4e50,
++		.uc5_pos     = 0x59948,  .uc5_length  = 0x5640,
++		.uc11_pos    = 0x5ef90,  .uc11_length = 0x6d80,
++		.uc13_pos    = 0x65d18,  .uc13_length = 0x69e0,
++		.pcm4_pos    = 0x6c6f8,	 .pcm4_length = 0x520,
++		.pcm5_pos    = 0x6cc20,	 .pcm5_length = 0x520,
++	},
++	{
++		.name        = "bcmwl664.sys",
++		.version     = "4.102.15.61",
++		.md5         = "97f98e5e6a83585e42b1e1e15716aae8",
++		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
++			       V4_FIRMWARE,
++		.iv_pos      = 0x6f2b0,
++		.iv_map      = INITVALS_MAP_V4_102,
++		.uc4_pos     = 0x76240,  .uc4_length  = 0x4e50,
++		.uc5_pos     = 0x7b090,  .uc5_length  = 0x5640,
++		.uc11_pos    = 0x806d0,  .uc11_length = 0x6d80,
++		.uc13_pos    = 0x87450,  .uc13_length = 0x69e0,
++		.pcm4_pos    = 0x8de30,	 .pcm4_length = 0x520,
++		.pcm5_pos    = 0x8e350,	 .pcm5_length = 0x520,
++	},
++	{
+ 		.name        = "d11ucode.o",
+ 		.version     = "3.31.16.0 ?", /*FIXME: version correct? */
+ 		.md5         = "31e6cac8a8129bf8f91291293e017329",
+
+
+
+From marlanx at mail.berlios.de  Fri Jan 26 21:31:13 2007
+From: marlanx at mail.berlios.de (marlanx at mail.berlios.de)
+Date: Fri, 26 Jan 2007 21:31:13 +0100
+Subject: r1214 - trunk/fwcutter
+Message-ID: <200701262031.l0QKVDrH002134@sheep.berlios.de>
+
+Author: marlanx
+Date: 2007-01-26 21:31:10 +0100 (Fri, 26 Jan 2007)
+New Revision: 1214
+
+Modified:
+   trunk/fwcutter/fwcutter_list.h
+Log:
+bcmwl6.sys v4.102.15.56 (renamed as wn311b.sys) added
+ftp://downloads.netgear.com/files/WN311B_Vista_beta.zip
+
+Modified: trunk/fwcutter/fwcutter_list.h
+===================================================================
+--- trunk/fwcutter/fwcutter_list.h	2007-01-23 22:43:51 UTC (rev 1213)
++++ trunk/fwcutter/fwcutter_list.h	2007-01-26 20:31:10 UTC (rev 1214)
+@@ -1207,6 +1207,21 @@
+ 	},
+ 	{
+ 		.name        = "bcmwl6.sys",
++		.version     = "4.102.15.56",
++		.md5         = "509f672686af40f95859fde67108449b",
++		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
++			       V4_FIRMWARE,
++		.iv_pos      = 0x4db70,
++		.iv_map      = INITVALS_MAP_V4_80_46,
++		.uc4_pos     = 0x54af0,  .uc4_length  = 0x4e50,
++		.uc5_pos     = 0x59948,  .uc5_length  = 0x5640,
++		.uc11_pos    = 0x5ef90,  .uc11_length = 0x6d80,
++		.uc13_pos    = 0x65d18,  .uc13_length = 0x69e0,
++		.pcm4_pos    = 0x6c6f8,	 .pcm4_length = 0x520,
++		.pcm5_pos    = 0x6cc20,	 .pcm5_length = 0x520,
++	},
++	{
++		.name        = "bcmwl6.sys",
+ 		.version     = "4.102.15.61",
+ 		.md5         = "746f59822a5187510471fc46889b8cc9",
+ 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+
+
+
+From marlanx at mail.berlios.de  Sat Jan 27 11:40:56 2007
+From: marlanx at mail.berlios.de (marlanx at mail.berlios.de)
+Date: Sat, 27 Jan 2007 11:40:56 +0100
+Subject: r1215 - trunk/fwcutter
+Message-ID: <200701271040.l0RAeusu031014@sheep.berlios.de>
+
+Author: marlanx
+Date: 2007-01-27 11:40:55 +0100 (Sat, 27 Jan 2007)
+New Revision: 1215
+
+Modified:
+   trunk/fwcutter/fwcutter_list.h
+Log:
+AppleAirPortBrcm4311 v4.80.76.0 (AirPort Extreme Update 2007-001) support
+ucode revision 0x015f, patchlevel 0x050c.
+
+Modified: trunk/fwcutter/fwcutter_list.h
+===================================================================
+--- trunk/fwcutter/fwcutter_list.h	2007-01-26 20:31:10 UTC (rev 1214)
++++ trunk/fwcutter/fwcutter_list.h	2007-01-27 10:40:55 UTC (rev 1215)
+@@ -351,6 +351,21 @@
+ 		.pcm4_pos    = 0x1421e8,  .pcm4_length = 0x520,
+ 		.pcm5_pos    = 0x141cc8,  .pcm5_length = 0x520,
+ 	},
++	{
++		.name        = "AppleAirPortBrcm4311",
++		.version     = "4.80.76.0",
++		.md5         = "f5963816541d6f5fee2bd1e078919e93",
++		.flags       = BYTE_ORDER_BIG_ENDIAN |
++		               V4_FIRMWARE,
++		.iv_pos      = 0x162a3c,
++		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
++		.uc4_pos     = 0x15dbcc,  .uc4_length  = 0x4e70,
++		.uc5_pos     = 0x158584,  .uc5_length  = 0x5648,
++		.uc11_pos    = 0x151cf0,  .uc11_length = 0x6890,
++		.uc13_pos    = 0x14bd68,  .uc13_length = 0x5f88,
++		.pcm4_pos    = 0x14b848,  .pcm4_length = 0x520,
++		.pcm5_pos    = 0x14b328,  .pcm5_length = 0x520,
++	},
+ 	{ 
+ 		.name        = "bcmwl5.sys",                           /* renamed to WMP11V27.sys */
+ 		.version     = "3.8.28.0",
+
+
+

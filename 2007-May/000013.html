@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> r1226 - trunk/sprom
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/bcm43xx-svn/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1226%20-%20trunk/sprom&In-Reply-To=%3C200705072329.l47NTWLW005569%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>r1226 - trunk/sprom</H1>
+    <B>tuxbuesch at BerliOS</B> 
+    <A HREF="mailto:bcm43xx-svn%40lists.berlios.de?Subject=Re%3A%20r1226%20-%20trunk/sprom&In-Reply-To=%3C200705072329.l47NTWLW005569%40sheep.berlios.de%3E"
+       TITLE="r1226 - trunk/sprom">tuxbuesch at mail.berlios.de
+       </A><BR>
+    <I>Tue May  8 01:29:32 CEST 2007</I>
+    <P><UL>
+        
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#13">[ date ]</a>
+              <a href="thread.html#13">[ thread ]</a>
+              <a href="subject.html#13">[ subject ]</a>
+              <a href="author.html#13">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: tuxbuesch
+Date: 2007-05-08 01:29:31 +0200 (Tue, 08 May 2007)
+New Revision: 1226
+
+Modified:
+   trunk/sprom/ssb_sprom.c
+Log:
+fix typos.
+
+
+
+Modified: trunk/sprom/ssb_sprom.c
+===================================================================
+--- trunk/sprom/ssb_sprom.c	2007-04-06 22:07:42 UTC (rev 1225)
++++ trunk/sprom/ssb_sprom.c	2007-05-07 23:29:31 UTC (rev 1226)
+@@ -451,7 +451,7 @@
+ 			value = 1;
+ 		break;
+ 	case VALUE_ANTBG0:
+-		desc = &quot;B/G PHY antenna 1 available&quot;;
++		desc = &quot;B/G PHY antenna 0 available&quot;;
+ 		offset = SPROM_BOARDREV + 1;
+ 		value = 0;
+ 		if (sprom[SPROM_BOARDREV + 1] &amp; (1 &lt;&lt; 6))
+@@ -470,7 +470,7 @@
+ 		value = sprom[SPROM_ANTENNA_GAIN];
+ 		break;
+ 	case VALUE_ANTGBG:
+-		desc = &quot;A PHY antenna gain&quot;;
++		desc = &quot;B/G PHY antenna gain&quot;;
+ 		offset = SPROM_ANTENNA_GAIN + 1;
+ 		value = sprom[SPROM_ANTENNA_GAIN + 1];
+ 		break;
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#13">[ date ]</a>
+              <a href="thread.html#13">[ thread ]</a>
+              <a href="subject.html#13">[ subject ]</a>
+              <a href="author.html#13">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/bcm43xx-svn">More information about the Bcm43xx-svn
+mailing list</a><br>
+</body></html>
